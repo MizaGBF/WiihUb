@@ -53,6 +53,9 @@ class Screenshot():
     def get_interface(self):
         html = '<form method="post" enctype="multipart/form-data" action="/screenshot"><legend><b>Screenshot Upload</b></legend><div><input type="file" id="file" name="file" accept="image/jpeg"></div><div><button>Send</button></div></form>'
         if self.notification is not None:
-            html += "<br>{}<br>".format(self.notification)
+            html += "{}<br>".format(self.notification)
             self.notification = None
         return html
+
+    def get_manual(self):
+        return '<b>Screenshot Upload plugin</b><br>If needed, the output folder can be defined in config.json, at "screenshot_folder".'

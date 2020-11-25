@@ -10,6 +10,8 @@ class Streamlink():
         self.streamlink_path = self.server.data.get("streamlink_path", "streamlink")
         self.streamlink_port = self.server.data.get("streamlink_port", 65313)
         self.streamlink = None
+        self.streamlink_url = None
+        self.streamlink_current  = None
         self.notification = None
 
     def stop(self):
@@ -25,14 +27,15 @@ class Streamlink():
             self.streamlink.wait()
             self.streamlink = None
             print("Stopped the streamlink instance")
-        except: pass
+        except:
+            self.streamlink = None
 
     def process_get(self, handler, path):
         if path.startswith('/twitch?'):
             path_str = str(path)[len('/twitch?'):]
             param_strs = path_str.split('&')
             options = {}
-            host_address = handler.headers.get('Host').split(":")[0]
+            host_address = handler.headers.get('Host')
             for s in param_strs:
                 arg = s.split('=')
                 if arg[0] == "stream" and arg[1] != "": options['stream'] = arg[1]
@@ -45,22 +48,24 @@ class Streamlink():
                 print("Checking if stream is available...")
                 self.last_stream = options['stream']
                 self.last_quality = options.get('quality', self.last_quality)
+                self.streamlink_url = 'http://{}:{}'.format(host_address.split(":")[0], self.streamlink_port)
+                self.streamlink_current = '{}'.format(options['stream'])
                 if self.streamlink.poll() is None:
                     print("Stream started")
                     handler.send_response(303)
-                    handler.send_header('Location','http://{}:{}'.format(host_address, self.streamlink_port))
+                    handler.send_header('Location', self.streamlink_url)
                     handler.end_headers()
                 else:
                     raise Exception()
                 return True
             except Exception as e:
-                print(e)
+                self.streamlink_kill()
                 print("Stream not found")
-                self.send_response(200)
-                self.send_header('Content-type', 'text/html')
-                self.end_headers()
+                print(e)
                 self.notification = "Stream not found"
-                self.wfile.write((self.hander.server.get_interface()).encode('utf-8'))
+                handler.send_response(303)
+                handler.send_header('Location','http://{}'.format(host_address))
+                handler.end_headers()
                 return True
         elif path.startswith('/kill'):
             self.streamlink_kill()
@@ -80,8 +85,11 @@ class Streamlink():
     def get_interface(self):
         html = '<form action="/twitch"><legend><b>Twitch</b></legend><label for="stream">Stream </label><input type="text" id="stream" name="stream" value="{}"><br><label for="qual">Quality </label><input type="text" id="qual" name="qual" value="{}"><br><input type="submit" value="Start"></form>'.format(self.last_stream, self.last_quality)
         if self.streamlink is not None:
-            html += '<form action="/kill"><input type="submit" value="Stop Streamlink"></form>'
+            html += '<a href="{}">Watch {}</a><br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'.format(self.streamlink_url, self.streamlink_current )
         if self.notification is not None:
             html += "{}<br>".format(self.notification)
             self.notification = None
         return html
+
+    def get_manual(self):
+        return '<b>Twitch plugin</b><br>If needed, Streamlink path must be defined in config.json, at "streamlink_path".<br>Currently, only one instance can run at once.<br>Check <a href="https://www.neoseeker.com/members/Dynamite/blog/10285990-viewing-twitch-streams-on-wii-u-using-livestreamer/">this</a> on how to modify Livestream/Streamlink to make it compatible with the Wii U'
