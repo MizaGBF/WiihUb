@@ -105,7 +105,7 @@ class Twitter():
                     tweet = tweet.replace(status.entities['media'][0]['url'], '')
                 except: pass
                 for m in status.entities['urls']:
-                    tweet = tweet.replace(m['url'], '<a href="{}">{}</a>'.format(m['expanded_url'], m['expanded_url']))
+                    tweet = tweet.replace(m['url'], '<a href="{}">{}</a>'.format(m['expanded_url'].replace('https://twitch.tv/', '/twitch=stream'), m['expanded_url']))
                 for m in status.entities['user_mentions']:
                     tweet = tweet.replace('@'+m['screen_name'], '<a href="/twitter?account={}">@{}</a>'.format(m['screen_name'], m['screen_name']))
                 html += '<div class="elem">{}</div>'.format(tweet)

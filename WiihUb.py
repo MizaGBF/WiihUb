@@ -105,7 +105,7 @@ class WiihUb(HTTPServer):
         super().__init__(('',8000), Handler)
 
     def run(self):
-        print("WiihUb - v1.1.0")
+        print("WiihUb - v1.2.0")
         print("Server started, listening on port 8000")
         try:
             self.serve_forever()
