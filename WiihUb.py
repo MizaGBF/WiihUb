@@ -78,7 +78,7 @@ class Handler(BaseHTTPRequestHandler):
         return html
 
     def get_manual(self):
-        html = '<style>.elem {border: 2px solid black;display: inline-block;background-color: #b8b8b8;}</style><title>WiihUb</title><body style="background-color: #242424;"><div><div class="elem"><b>WiihUb v1.1.0</b><br><a href="/">Back</a></div>'
+        html = '<style>.elem {border: 2px solid black;display: inline-block;background-color: #b8b8b8;}</style><title>WiihUb</title><body style="background-color: #242424;"><div><div class="elem"><b>WiihUb '+self.server.version+'</b><br><a href="/">Back</a></div>'
         for p in self.server.plugins:
             try:
                 html += '<div class="elem">'+p.get_manual()+'</div>'
@@ -90,6 +90,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(HTTPServer):
     def __init__(self):
+        self.version = "v1.2.1"
         try:
             with open('config.json') as f:
                 self.data = json.load(f)
@@ -105,7 +106,7 @@ class WiihUb(HTTPServer):
         super().__init__(('',8000), Handler)
 
     def run(self):
-        print("WiihUb - v1.2.0")
+        print("WiihUb - "+self.version)
         print("Server started, listening on port 8000")
         try:
             self.serve_forever()

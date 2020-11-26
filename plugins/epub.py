@@ -141,4 +141,4 @@ class Epub():
         return '<b>E-Pub Reader</b><br><a href="/booklist">Open folder</a>'
 
     def get_manual(self):
-        return '<b>>E-Pub Reader plugin</b><br>Put your e-pub files in a "books" folder before starting.'
+        return '<b>E-Pub Reader plugin</b><br>Put your e-pub files in a "books" folder before starting.<br>Images will be put in a folder named "epub_cache" and<br>emptied when changing books or closing WiihUb.'
