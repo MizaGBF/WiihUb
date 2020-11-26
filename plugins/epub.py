@@ -13,7 +13,7 @@ class Epub():
         self.chapters = []
         self.notification = None
         self.check_cache_folder()
-        self.img_re = re.compile('src="(\\.\\.[a-zA-Z0-9\\/]+\\.jpg)"')
+        self.img_re = re.compile('src="(\\.\\.[a-zA-Z0-9\\/\\-\\_]+\\.jpg)"')
 
     def stop(self):
         self.clean_cache()

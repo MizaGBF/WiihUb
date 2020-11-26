@@ -90,7 +90,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(HTTPServer):
     def __init__(self):
-        self.version = "v1.2.1"
+        self.version = "v1.2.2"
         try:
             with open('config.json') as f:
                 self.data = json.load(f)
