@@ -8,6 +8,7 @@ Flexible and simple plugin system. Currently support:
 * 4chan Thread search (The search doesn't work anymore on the Wii U Browser).  
 * Twitter Browsing (It will stop working soon on the Wii U Browser).  
 * E-Pub reader (Support e-pub 2 and 3).  
+* Mangadex Loader (for when chapters don't load).  
 For the installation, check what each plugin requires.  
 # Note  
 I don't plan on actively supporting this project, I'm just putting it here for backup purpose.  

@@ -101,7 +101,7 @@ class Epub():
             except Exception as e:
                 print("Failed to open book")
                 print(e)
-                self.notification = "Failed to open {}.epub<br>".format(options.get('file', ''), e)
+                self.notification = "Failed to open {}.epub<br>{}".format(options.get('file', ''), e)
                 host_address = handler.headers.get('Host')
                 handler.send_response(303)
                 handler.send_header('Location','http://{}/booklist'.format(host_address))
@@ -129,9 +129,13 @@ class Epub():
 
     def process_post(self, handler, path):
         return False
-        
+
     def get_interface(self):
-        return '<b>E-Pub Reader</b><br><a href="/booklist">Open folder</a>'
+        html = '<b>E-Pub Reader</b><br><a href="/booklist">Open folder</a>'
+        if self.notification is not None:
+            html += "{}<br>".format(self.notification)
+            self.notification = None
+        return html
 
     def get_manual(self):
         return '<b>E-Pub Reader plugin</b><br>Put your e-pub files in a folder defined in config.json, at "epub_folder"'
