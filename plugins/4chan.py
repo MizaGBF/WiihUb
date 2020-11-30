@@ -10,6 +10,14 @@ class FourChan():
         self.search_results = None
         self.chan_board = self.server.data.get("4chan_board", "")
         self.chan_search = self.server.data.get("4chan_search", "")
+        
+        threads = self.get4chan(self.chan_board, self.chan_search)
+        self.search_results = ""
+        for i in range(min(len(threads), 5)):
+            if len(threads[i][2]) > 20:
+                self.search_results += '<a href="https://boards.4channel.org/{}/thread/{}"><i>{}</i> - {}...</a><br>'.format(self.chan_board, threads[i][0], threads[i][1], threads[i][2][:20])
+            else:
+                self.search_results += '<a href="https://boards.4channel.org/{}/thread/{}"><i>{}</i> - {}</a><br>'.format(self.chan_board, threads[i][0], threads[i][1], threads[i][2])
 
     def stop(self):
         self.server.data["4chan_board"] = self.chan_board
@@ -61,6 +69,7 @@ class FourChan():
                         self.search_results += '<a href="https://boards.4channel.org/{}/thread/{}"><i>{}</i> - {}...</a><br>'.format(options['board'], threads[i][0], threads[i][1], threads[i][2][:20])
                     else:
                         self.search_results += '<a href="https://boards.4channel.org/{}/thread/{}"><i>{}</i> - {}</a><br>'.format(options['board'], threads[i][0], threads[i][1], threads[i][2])
+                if self.search_results == "": self.search_results = "No results"
             except Exception as e:
                 print("Failed to retrieve 4chan threads")
                 print(e)
@@ -82,7 +91,6 @@ class FourChan():
         html = '<form action="/4chan"><legend><b>4chan Thread Search</b></legend><label for="board">Board </label><input type="text" id="board" name="board" value="{}"><br><label for="search">Search </label><input type="text" id="search" name="search" value="{}"><br><input type="submit" value="Search"></form>'.format(self.chan_board, self.chan_search)
         if self.search_results is not None:
             html += "{}<br>".format(self.search_results)
-            self.search_results = None
         return html
 
     def get_manual(self):
