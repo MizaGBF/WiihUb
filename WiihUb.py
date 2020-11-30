@@ -26,7 +26,6 @@ class Handler(BaseHTTPRequestHandler):
                 return False
         return True
 
-
     def do_GET(self):
         path = str(self.path)
         if not self.check_client_address(self.client_address) or not self.check_blacklist(path):
@@ -67,6 +66,11 @@ class Handler(BaseHTTPRequestHandler):
             except:
                 pass
 
+        host_address = self.headers.get('Host')
+        self.send_response(303)
+        self.send_header('Location','http://{}'.format(host_address))
+        self.end_headers()
+
     def get_interface(self):
         html = '<style>.elem {border: 2px solid black;display: inline-block;background-color: #b8b8b8;}</style><title>WiihUb</title><body style="background-color: #242424;"><div><div class="elem"><b>WiihUb v1.1.0</b><br><a href="/manual">Help</a></div>'
         for p in self.server.plugins:
@@ -90,13 +94,18 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(HTTPServer):
     def __init__(self):
-        self.version = "v1.3.1"
+        self.version = "v1.4.0"
         try:
             with open('config.json') as f:
                 self.data = json.load(f)
         except Exception as e:
             print("Failed to load config.json")
             print(e)
+            while True:
+                print("An empty config.json file will be created, continue? (y/n)")
+                i = input()
+                if i.lower() == 'n': exit(0)
+                elif i.lower() == 'y': break
             self.data = {'home_network':'192.168.1'}
             self.save()
         self.plugins = []
@@ -127,7 +136,7 @@ class WiihUb(HTTPServer):
     def save(self):
         try:
             with open('config.json', 'w') as outfile:
-                json.dump(self.data, outfile)
+                json.dump(self.data, outfile, sort_keys=True, indent=4)
         except Exception as e:
             print("Failed to save config.json")
             print(e)

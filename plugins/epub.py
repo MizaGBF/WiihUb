@@ -12,7 +12,7 @@ class Epub():
         self.book = None
         self.chapters = []
         self.notification = None
-        self.img_re = re.compile('src="(\\.\\.[a-zA-Z0-9\\/\\-\\_]+\\.(jpg|png))"')
+        self.img_re = re.compile('(src|xlink:href)="(\.\.[a-zA-Z0-9\/\-\_]+\.(jpg|png|jpeg))')
         self.img_cache = {}
         self.folder = self.server.data.get("epub_folder", "books")
         if self.folder == "": self.folder = "books"
@@ -65,7 +65,12 @@ class Epub():
     def insert_image(self, content):
         r = self.img_re.findall(content)
         for i in r:
-            content = content.replace(i[0], '/bookimage?file={}'.format(i[0].split('/')[-1]))
+            if i[0] == 'xlink:href':
+                a = content.find('<svg')
+                b = content.find('</svg>')
+                content = content[:a] + '<img src="/bookimage?file={}">'.format(i[1].split('/')[-1]) + content[b+6:]
+            else:
+                content = content.replace(i[1], '/bookimage?file={}'.format(i[1].split('/')[-1]))
         return content
 
     def process_get(self, handler, path):
@@ -85,7 +90,7 @@ class Epub():
                 options[ss[0]] = ss[1]
             try:
                 content, chapter, last_chapter = self.get_book_chapter(urllib.parse.unquote(options['file']), int(options.get('chapter', 0)))
-                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;font-size: 180%;} .epub_content {color: #c7c7c7;font-size: 140%;}</style><title>WiihUb</title><body style="background-color: #242424;">'
+                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;font-size: 180%;} .epub_content {color: #c7c7c7;font-size: 150%;}</style><title>WiihUb</title><body style="background-color: #242424;">'
                 footer = '<div class="elem">'
                 if chapter > 0: footer += '<a href="/book?file={}&chapter={}">Previous</a> # '.format(options['file'], chapter-1)
                 footer += '<a href="/booklist">Back</a>'
@@ -102,7 +107,6 @@ class Epub():
                 print("Failed to open book")
                 print(e)
                 self.notification = "Failed to open {}.epub<br>{}".format(options.get('file', ''), e)
-                host_address = handler.headers.get('Host')
                 handler.send_response(303)
                 handler.send_header('Location','http://{}/booklist'.format(host_address))
                 handler.end_headers()

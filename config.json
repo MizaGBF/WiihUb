@@ -1,0 +1,15 @@
+{
+    "4chan_board": "v",
+    "4chan_search": "",
+    "epub_bookmarks": {
+    },
+    "epub_folder": "books",
+    "home_network": "192.168.1",
+    "screenshot_folder": "screenshot",
+    "streamlink_path": "streamlink",
+    "streamlink_port": 65313,
+    "streamlink_quality": "720p",
+    "streamlink_stream": "",,
+    "vlc_folder": "medias",
+    "vlc_path": "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe"
+}

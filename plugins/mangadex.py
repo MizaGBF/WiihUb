@@ -86,7 +86,6 @@ class Mangadex():
                 print("Failed to open chapter")
                 print(e)
                 self.notification = 'Failed to open <a href="{}">{}</a><br>{}'.format(options.get('url', ''), options.get('url', ''))
-                host_address = handler.headers.get('Host')
                 handler.send_response(303)
                 handler.send_header('Location','http://{}'.format(host_address))
                 handler.end_headers()
