@@ -9,7 +9,7 @@
     "streamlink_path": "streamlink",
     "streamlink_port": 65313,
     "streamlink_quality": "720p",
-    "streamlink_stream": "",,
+    "streamlink_stream": "",
     "vlc_folder": "medias",
     "vlc_path": "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe"
 }
