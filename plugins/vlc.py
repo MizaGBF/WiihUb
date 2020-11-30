@@ -70,7 +70,7 @@ class VLC():
                 options[ss[0]] = ss[1]
             try:
                 self.stop_vlc()
-                self.vlc = subprocess.Popen([self.path, "C:\\Users\\Fabien\\Documents\\Torrent\\Senki Zesshou Symphogear\\01 Senki Zesshou Symphogear\\Senki Zesshou Symphogear - 01.mkv", '--sout=#transcode{width=1280,height=720,fps=25,vcodec=h264,vb=256,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=96,channels=2}:std{access=livehttp{seglen=3,delsegs=true,numsegs=1,index=stream.m3u8,index-url=/stream-########.ts},mux=ts{use-key-frames},dst=stream-########.ts}'])
+                self.vlc = subprocess.Popen([self.path, self.folder + "/" + urllib.parse.unquote(options['file']), '--sout=#transcode{width=1280,height=720,fps=25,vcodec=h264,vb=256,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=96,channels=2}:std{access=livehttp{seglen=3,delsegs=true,numsegs=1,index=stream.m3u8,index-url=/stream-########.ts},mux=ts{use-key-frames},dst=stream-########.ts}'])
                 time.sleep(2)
                 handler.send_response(200)
                 handler.send_header('Content-type', 'text/html')
@@ -80,7 +80,7 @@ class VLC():
                 print("Failed to open media")
                 print(e)
                 self.stop_vlc()
-                self.notification = "Failed to open {}<br>{}".format(options.get('file', ''), e)
+                self.notification = "Failed to open {}<br>{}".format(urllib.parse.unquote(options.get('file', '')), e)
                 handler.send_response(303)
                 handler.send_header('Location','http://{}/medialist'.format(host_address))
                 handler.end_headers()

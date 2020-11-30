@@ -75,10 +75,8 @@ class Streamlink():
             handler.send_header('Location','http://{}'.format(host_address))
             handler.end_headers()
             return True
-    
         return False
-    
-    
+
     def process_post(self, handler, path):
         return False
 
