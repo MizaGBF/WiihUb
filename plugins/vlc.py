@@ -4,6 +4,7 @@ import time
 from os import listdir, unlink, makedirs, path, remove
 from os.path import isfile, join, islink
 import urllib.parse
+import glob
 
 class VLC():
     def __init__(self, server):
@@ -39,8 +40,9 @@ class VLC():
                 print("Deleted", f)
 
     def get_media_list(self):
-        try: fs = [f for f in listdir(self.folder) if isfile(join(self.folder, f))]
+        try: fs = glob.glob(self.folder + '/**/*', recursive=True)
         except: fs = []
+        format = ['.webm', '.mkv', '.flv', '.vob', '.gif', '.avi', '.rm', '.mpg', '.mp2', '.mpeg', '.mpe', '.mpv', '.mpg', '.mpeg', '.m2v', '.m4v', 'mp4']
         html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
         html += '<div class="elem"><a href="/">Back</a></div>'
         if self.notification is not None:
@@ -48,7 +50,10 @@ class VLC():
             self.notification = None
         html += '<div class="elem">'
         for m in fs:
-            html += '<a href="/play?file={}">{}</a><br>'.format(m, m)
+            for e in format:
+                if m.endswith(e):
+                    html += '<a href="/play?file={}">{}</a><br>'.format(m, m[len(self.folder)+1:])
+                    break
         if len(fs) == 0: html += "No files found in the '{}' folder".format(self.folder)
         html += '</div>'
         return html
