@@ -43,7 +43,7 @@ class Streamlink():
             try:
                 if 'stream' not in options: raise Exception()
                 self.streamlink_kill()
-                self.streamlink = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('quality', '720p')]) # , stdout=DEVNULL, stderr=DEVNULL
+                self.streamlink = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('quality', '720p')])
                 time.sleep(10)
                 print("Checking if stream is available...")
                 self.last_stream = options['stream']
