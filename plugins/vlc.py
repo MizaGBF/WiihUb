@@ -21,9 +21,6 @@ class VLC():
         self.server.data["vlc_path"] = self.path
         self.stop_vlc()
 
-    def delFile(self, file):
-        remove(file)
-
     def stop_vlc(self):
         try:
             self.vlc.terminate()
@@ -32,15 +29,6 @@ class VLC():
             print("Stopped the VLC instance")
         except:
             self.vlc = None
-        try: fs = [f for f in listdir() if isfile(f)]
-        except: fs = []
-        for f in fs:
-            if f.startswith("stream"):
-                self.delFile(f)
-                print("Deleted", f)
-
-    def check_m3u8(self):
-        return isfile("stream.m3u8") 
 
     def get_media_list(self):
         try: fs = glob.glob(self.folder + '/**/*', recursive=True)
@@ -85,16 +73,12 @@ class VLC():
                 options[ss[0]] = ss[1]
             try:
                 self.stop_vlc()
-                self.vlc = subprocess.Popen([self.path, urllib.parse.unquote(options['file']), '--sout=#transcode{width=1280,height=720,fps=25,vcodec=h264,vb=1024,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=96,channels=2,soverlay}:std{access=livehttp{seglen=10,delsegs=false,numsegs=0,index=stream.m3u8,index-url=/stream-########.ts},mux=ts{use-key-frames},dst=stream-########.ts}'])
-                errc = 0
-                while not self.check_m3u8():
-                    time.sleep(0.2)
-                    errc += 1
-                    if errc > 50: raise Exception("Timeout")
+                self.vlc = subprocess.Popen([self.path, urllib.parse.unquote(options['file']), '--sout=#transcode{width=1280,height=720,fps=25,vcodec=h264,vb=1024,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=96,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:8001/'])
+                time.sleep(5)
                 handler.send_response(200)
                 handler.send_header('Content-type', 'text/html')
                 handler.end_headers()
-                handler.wfile.write('<html><meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div class="elem"><a href="/medialist">Back</a><br><br><form action="/vlcstop"><input type="submit" value="Stop VLC"></form></div><div class="elem"><video width="320" height="240" controls autoplay src="/stream.m3u8"></video></div></body></html>'.encode('utf-8'))
+                handler.wfile.write('<html><meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div class="elem"><a href="/medialist">Back</a><br><br><form action="/vlcstop"><input type="submit" value="Stop VLC"></form></div><div class="elem"><video width="320" height="240" controls autoplay src="http://192.168.1.11:8001"></video></div></body></html>'.encode('utf-8'))
             except Exception as e:
                 print("Failed to open media")
                 print(e)
@@ -102,21 +86,6 @@ class VLC():
                 self.notification = "Failed to open {}<br>{}".format(urllib.parse.unquote(options.get('file', '')), e)
                 handler.send_response(303)
                 handler.send_header('Location','http://{}/medialist'.format(host_address))
-                handler.end_headers()
-            return True
-        elif path.startswith('/stream'):
-            try:
-                with open(path.split("/")[-1], "rb") as f:
-                    handler.send_response(200)
-                    handler.send_header('Content-type', 'application/x-mpegURL')
-                    handler.end_headers()
-                    handler.wfile.write(f.read())
-                    print(path.split("/")[-1], 'sent')
-            except Exception as e:
-                print("Failed to send", path.split("/")[-1])
-                print(e)
-                self.notification = "Failed to open {}<br>{}".format(path.split("/")[-1], e)
-                handler.send_response(404)
                 handler.end_headers()
             return True
         return False
