@@ -7,6 +7,7 @@ class Twitter():
         self.server = server
         self.running = False
         self.notification = None
+        self.bookmarks = self.server.data.get('twitter_bookmarks', [])
 
         try: # test registered keys (if any)
             self.auth = tweepy.OAuthHandler(self.server.data['twitter_consumer_key'], self.server.data['twitter_consumer_secret'])
@@ -35,11 +36,12 @@ class Twitter():
                 print(x)
 
     def stop(self):
-        pass
+        self.server.data['twitter_bookmarks'] = self.bookmarks
 
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
         if not self.running:
+            self.notification = "Twitter not enabled"
             handler.send_response(303)
             handler.send_header('Location','http://{}'.format(host_address))
             handler.end_headers()
@@ -59,25 +61,75 @@ class Twitter():
                     handler.end_headers()
                     handler.wfile.write(self.get_twitter(item).encode('utf-8'))
                     return True
-                
-                print("name: " + item.name)
-                print("screen_name: " + item.screen_name)
-                print("description: " + item.description)
-                print("statuses_count: " + str(item.statuses_count))
-                print("friends_count: " + str(item.friends_count))
-                print("followers_count: " + str(item.followers_count))
+                else: raise Exception('Account not found')
             except Exception as e:
                 print("Twitter error")
                 print(e)
+                self.notification += "Twitter Error\n" + str(e)
             
             handler.send_response(303)
             handler.send_header('Location','http://{}'.format(host_address))
             handler.end_headers()
             return True
+        elif path.startswith('/twitterdel?'):
+            path_str = str(path)[len('/twitterdel?'):]
+            param_strs = path_str.split('&')
+            options = {}
+            for s in param_strs:
+                ss = s.split('=')
+                options[ss[0]] = ss[1]
+            try:
+                for i in range(len(self.bookmarks)):
+                    if self.bookmarks[i] == options['account']:
+                        self.bookmarks.pop(i)
+            except Exception as e:
+                print("Twitter Bookmark Del error")
+                print(e)
+            handler.send_response(303)
+            if 'source' in options: handler.send_header('Location','http://{}/twitter?account={}'.format(host_address, options['source']))
+            else: handler.send_header('Location','http://{}'.format(host_address))
+            handler.end_headers()
+            return True
+        elif path.startswith('/twitteradd?'):
+            path_str = str(path)[len('/twitteradd?'):]
+            param_strs = path_str.split('&')
+            options = {}
+            for s in param_strs:
+                ss = s.split('=')
+                options[ss[0]] = ss[1]
+            try:
+                self.bookmarks.append(options['account'])
+            except Exception as e:
+                print("Twitter Bookmark Add error")
+                print(e)
+            handler.send_response(303)
+            if 'source' in options: handler.send_header('Location','http://{}/twitter?account={}'.format(host_address, options['source']))
+            else: handler.send_header('Location','http://{}'.format(host_address))
+            handler.end_headers()
+            return True
+        elif path.startswith('/twitterbookmark'):
+            handler.send_response(200)
+            handler.send_header('Content-type', 'text/html')
+            handler.end_headers()
+            handler.wfile.write(self.get_bookmarks().encode('utf-8'))
+            return True
         return False
 
     def process_post(self, handler, path):
         return False
+
+    def get_bookmarks(self):
+        html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
+        html += '<div class="elem"><a href="/">Back</a></div>'
+        if self.notification is not None:
+            html += '<div class="elem">{}</div>'.format(self.notification)
+            self.notification = None
+        html += '<div class="elem">'
+        for b in self.bookmarks:
+            html += '<a href="/twitter?account={}">@{}</a><br>'.format(b, b)
+        if len(self.bookmarks) == 0: html += "No bookmarks found"
+        html += '</div>'
+        return html
 
     def getTimedeltaStr(self, delta):
         d = delta.days
@@ -93,7 +145,10 @@ class Twitter():
 
     def get_twitter(self, item):
         html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
-        html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a></div>'
+        html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
+        if item.screen_name in self.bookmarks: html += '<a href="/twitterdel?account={}&source={}">Remove from bookmarks</a>'.format(item.screen_name, item.screen_name)
+        else: html += '<a href="/twitteradd?account={}&source={}">Add to bookmarks</a>'.format(item.screen_name, item.screen_name)
+        html += '</div>'
         html += '<div class="elem"><b><a href="/twitter?account={}">{}</a><br></b>{}</div>'.format(item.screen_name, item.name, item.description)
         tweet_count = ""
         for status in tweepy.Cursor(self.twitter_api.user_timeline, id=item.screen_name, tweet_mode='extended').items(40):
@@ -115,6 +170,8 @@ class Twitter():
 
     def get_interface(self):
         html = '<form action="/twitter"><legend><b>Twitter Browser</b></legend><label for="account">Account </label><input type="text" id="account" name="account" value=""><br><input type="submit" value="Search"></form>'
+        if len(self.bookmarks) > 0:
+            html += '<a href="/twitterbookmark">Open Bookmarks</a><br>'
         if self.notification is not None:
             html += "{}<br>".format(self.notification)
             self.notification = None

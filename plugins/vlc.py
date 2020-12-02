@@ -73,7 +73,7 @@ class VLC():
                 options[ss[0]] = ss[1]
             try:
                 self.stop_vlc()
-                self.vlc = subprocess.Popen([self.path, urllib.parse.unquote(options['file']), '--sout=#transcode{width=1280,height=720,fps=25,vcodec=h264,vb=1024,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=96,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:8001/'])
+                self.vlc = subprocess.Popen([self.path, urllib.parse.unquote(options['file']), '--sout=#transcode{width=1280,height=720,fps=25,vcodec=h264,vb=800,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=96,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:8001/'])
                 time.sleep(5)
                 handler.send_response(200)
                 handler.send_header('Content-type', 'text/html')

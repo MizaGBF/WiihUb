@@ -72,7 +72,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def get_interface(self):
-        html = '<style>.elem {border: 2px solid black;display: inline-block;background-color: #b8b8b8;}</style><title>WiihUb</title><body style="background-color: #242424;"><div><div class="elem"><b>WiihUb v1.1.0</b><br><a href="/manual">Help</a></div>'
+        html = '<style>.elem {border: 2px solid black;display: inline-block;background-color: #b8b8b8;}</style><title>WiihUb</title><body style="background-color: #242424;"><div><div class="elem"><b>WiihUb '+self.server.version+'</b><br><a href="/manual">Help</a></div>'
         for p in self.server.plugins:
             try:
                 html += '<div class="elem">'+p.get_interface()+'</div>'
@@ -94,7 +94,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(HTTPServer):
     def __init__(self):
-        self.version = "v1.4.6"
+        self.version = "v1.5.0"
         try:
             with open('config.json') as f:
                 self.data = json.load(f)
