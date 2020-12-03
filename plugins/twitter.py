@@ -79,9 +79,12 @@ class Twitter():
                 ss = s.split('=')
                 options[ss[0]] = ss[1]
             try:
-                for i in range(len(self.bookmarks)):
+                i = 0
+                while i < len(self.bookmarks):
                     if self.bookmarks[i] == options['account']:
                         self.bookmarks.pop(i)
+                    else:
+                        i += 1
             except Exception as e:
                 print("Twitter Bookmark Del error")
                 print(e)
