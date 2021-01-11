@@ -49,15 +49,7 @@ class FourChan():
 
     def process_get(self, handler, path):
         if path.startswith('/4chan?'):
-            path_str = str(path)[len('/4chan?'):]
-            param_strs = path_str.split('&')
-            options = {}
-            host_address = handler.headers.get('Host')
-            for s in param_strs:
-                arg = s.split('=')
-                if arg[0] == "board" and arg[1] != "": options['board'] = arg[1]
-                elif arg[0] == "search" and arg[1] != "": options['search'] = arg[1]
-
+            options = self.server.getOptions(path, '4chan')
             try:
                 if 'board' not in options or 'search' not in options: raise Exception()
                 
@@ -78,9 +70,7 @@ class FourChan():
             self.chan_board = options.get('board', self.chan_board)
             self.chan_search = options.get('search', self.chan_search)
 
-            handler.send_response(303)
-            handler.send_header('Location','http://{}'.format(host_address))
-            handler.end_headers()
+            handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
         return False
 

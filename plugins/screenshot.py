@@ -44,9 +44,7 @@ class Screenshot():
                 self.push_notification("Failed to save screenshot")
 
             host_address = handler.headers.get('Host')
-            handler.send_response(303)
-            handler.send_header('Location','http://{}'.format(host_address))
-            handler.end_headers()
+            handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
         return False
 

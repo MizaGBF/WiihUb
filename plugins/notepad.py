@@ -35,69 +35,39 @@ class Notepad():
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
         if path.startswith('/newnote'):
-            handler.send_response(200)
-            handler.send_header('Content-type', 'text/html')
-            handler.end_headers()
-            handler.wfile.write(self.get_typing_ui().encode('utf-8'))
+            handler.answer(200, {'Content-type': 'text/html'}, self.get_typing_ui().encode('utf-8'))
             return True
         elif path.startswith('/listnote'):
-            handler.send_response(200)
-            handler.send_header('Content-type', 'text/html')
-            handler.end_headers()
-            handler.wfile.write(self.get_notes().encode('utf-8'))
+            handler.answer(200, {'Content-type': 'text/html'}, self.get_notes().replace('\n', '<br>').encode('utf-8'))
             return True
         elif path.startswith('/delnote?'):
-            path_str = str(path)[len('/delnote?'):]
-            param_strs = path_str.split('&')
-            options = {}
-            for s in param_strs:
-                ss = s.split('=')
-                options[ss[0]] = ss[1]
+            options = self.server.getOptions(path, 'delnote')
             try:
                 self.notes.pop(int(options['id']))
             except Exception as e:
                 print("Failed to delete note")
                 print(e)
-            handler.send_response(303)
-            handler.send_header('Location','http://{}/listnote'.format(host_address))
-            handler.end_headers()
+            handler.answer(303, {'Location':'http://{}/listnote'.format(host_address)})
             return True
         elif path.startswith('/editnote?'):
-            path_str = str(path)[len('/editnote?'):]
-            param_strs = path_str.split('&')
-            options = {}
-            for s in param_strs:
-                ss = s.split('=')
-                options[ss[0]] = ss[1]
+            options = self.server.getOptions(path, 'editnote')
             try:
-                handler.send_response(200)
-                handler.send_header('Content-type', 'text/html')
-                handler.end_headers()
-                handler.wfile.write(self.get_typing_ui(int(options['id'])).encode('utf-8'))
+                handler.answer(200, {'Content-type': 'text/html'}, self.get_typing_ui(int(options['id'])).encode('utf-8'))
             except Exception as e:
                 print("Note not found")
                 print(e)
-                handler.send_response(303)
-                handler.send_header('Location','http://{}/listnote'.format(host_address))
-                handler.end_headers()
+                handler.answer(303, {'Location':'http://{}/listnote'.format(host_address)})
             return True
         elif path.startswith('/savenote?'):
-            path_str = str(path)[len('/savenote?'):]
-            param_strs = path_str.split('&')
-            options = {}
-            for s in param_strs:
-                ss = s.split('=')
-                options[ss[0]] = ss[1]
+            options = self.server.getOptions(path, 'savenote')
             try:
                 target = options.get('target', None)
-                if 'target' in options: self.notes[int(options['target'])] = urllib.parse.unquote(options['content'].replace('+', ' '))
-                else: self.notes.append(urllib.parse.unquote(options['content'].replace('+', ' ')))
+                if 'target' in options: self.notes[int(options['target'])] = urllib.parse.unquote(options['content'].replace('+', ' ')).replace('\r\n', '\n')
+                else: self.notes.append(urllib.parse.unquote(options['content'].replace('+', ' ')).replace('\r\n', '\n'))
             except Exception as e:
                 print("Failed to save note")
                 print(e)
-            handler.send_response(303)
-            handler.send_header('Location','http://{}/listnote'.format(host_address))
-            handler.end_headers()
+            handler.answer(303, {'Location':'http://{}/listnote'.format(host_address)})
             return True
         return False
 

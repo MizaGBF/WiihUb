@@ -12,7 +12,7 @@ class Epub():
         self.book = None
         self.chapters = []
         self.notification = None
-        self.img_re = re.compile('(src|xlink:href)="(\.\.[a-zA-Z0-9\/\-\_]+\.(jpg|png|jpeg))')
+        self.img_re = re.compile('(src|xlink:href)="([a-zA-Z0-9\/\-\.\_]+\.(jpg|png|jpeg))')
         self.img_cache = {}
         self.folder = self.server.data.get("epub_folder", "books")
         if self.folder == "": self.folder = "books"
@@ -76,18 +76,10 @@ class Epub():
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
         if path.startswith('/booklist'):
-            handler.send_response(200)
-            handler.send_header('Content-type', 'text/html')
-            handler.end_headers()
-            handler.wfile.write(self.get_book_list().encode('utf-8'))
+            handler.answer(200, {'Content-type':'text/html'}, self.get_book_list().encode('utf-8'))
             return True
         elif path.startswith('/book?'):
-            path_str = str(path)[len('/book?'):]
-            param_strs = path_str.split('&')
-            options = {}
-            for s in param_strs:
-                ss = s.split('=')
-                options[ss[0]] = ss[1]
+            options = self.server.getOptions(path, 'book')
             try:
                 content, chapter, last_chapter = self.get_book_chapter(urllib.parse.unquote(options['file']), int(options.get('chapter', 0)))
                 html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;font-size: 180%;} .epub_content {color: #c7c7c7;font-size: 150%;}</style><title>WiihUb</title><body style="background-color: #242424;">'
@@ -98,36 +90,22 @@ class Epub():
                 footer += '</div>'
                 html += footer + '<div class="epub_content">{}</div>'.format(self.insert_image(content)) + footer + '</body>'
                 self.bookmarks[urllib.parse.unquote(options['file'])] = chapter
-                handler.send_response(200)
-                handler.send_header('Content-type', 'text/html')
-                handler.end_headers()
-                handler.wfile.write(html.encode('utf-8'))
+                handler.answer(200, {'Content-type':'text/html'}, html.encode('utf-8'))
                 return True
             except Exception as e:
                 print("Failed to open book")
                 print(e)
                 self.notification = "Failed to open {}.epub<br>{}".format(options.get('file', ''), e)
-                handler.send_response(303)
-                handler.send_header('Location','http://{}/booklist'.format(host_address))
-                handler.end_headers()
+                handler.answer(303, {'Location':'http://{}/booklist'.format(host_address)})
             return True
         elif path.startswith('/bookimage?'):
-            path_str = str(path)[len('/bookimage?'):]
-            param_strs = path_str.split('&')
-            options = {}
-            for s in param_strs:
-                ss = s.split('=')
-                options[ss[0]] = ss[1]
+            options = self.server.getOptions(path, 'bookimage')
             try:
-                handler.send_response(200)
-                handler.send_header('Content-type', 'image/{}'.format(options['file'].split('.')[-1]))
-                handler.end_headers()
-                handler.wfile.write(self.img_cache[urllib.parse.unquote(options['file'])])
+                handler.answer(200, {'Content-type':'image/{}'.format(options['file'].split('.')[-1])}, self.img_cache[urllib.parse.unquote(options['file'])])
             except Exception as e:
                 print("Image not found in cache")
                 print(e)
-                handler.send_response(404)
-                handler.end_headers()
+                handler.answer(404)
             return True
         return False
 

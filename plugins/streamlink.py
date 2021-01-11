@@ -62,14 +62,8 @@ class Streamlink():
 
     def process_get(self, handler, path):
         if path.startswith('/twitch?'):
-            path_str = str(path)[len('/twitch?'):]
-            param_strs = path_str.split('&')
-            options = {}
             host_address = handler.headers.get('Host')
-            for s in param_strs:
-                arg = s.split('=')
-                if arg[0] == "stream" and arg[1] != "": options['stream'] = arg[1]
-                elif arg[0] == "qual" and arg[1] != "": options['quality'] = arg[1]
+            options = self.server.getOptions(path, 'twitch')
             try:
                 if 'stream' not in options: raise Exception()
                 self.streamlink_kill()
@@ -83,9 +77,7 @@ class Streamlink():
                 if self.streamlink.poll() is None:
                     print("Stream started")
                     self.add_to_history(options['stream'], options.get('quality', self.last_quality))
-                    handler.send_response(303)
-                    handler.send_header('Location', self.streamlink_url)
-                    handler.end_headers()
+                    handler.answer(303, {'Location': self.streamlink_url})
                 else:
                     raise Exception()
                 return True
@@ -94,23 +86,16 @@ class Streamlink():
                 print("Stream not found")
                 print(e)
                 self.notification = "Stream not found"
-                handler.send_response(303)
-                handler.send_header('Location','http://{}'.format(host_address))
-                handler.end_headers()
+                handler.answer(303, {'Location': 'http://{}'.format(host_address)})
                 return True
         elif path.startswith('/streamlinkhistory'):
-            handler.send_response(200)
-            handler.send_header('Content-type', 'text/html')
-            handler.end_headers()
-            handler.wfile.write(self.get_history().encode('utf-8'))
+            handler.answer(200, {'Content-type': 'text/html'}, self.get_history().encode('utf-8'))
             return True
         elif path.startswith('/kill'):
             self.streamlink_kill()
             host_address = handler.headers.get('Host')
             self.notification = "Streamlink Stopped"
-            handler.send_response(303)
-            handler.send_header('Location','http://{}'.format(host_address))
-            handler.end_headers()
+            handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
         return False
 
@@ -118,7 +103,7 @@ class Streamlink():
         return False
 
     def get_interface(self):
-        html = '<form action="/twitch"><legend><b>Twitch</b></legend><label for="stream">Stream </label><input type="text" id="stream" name="stream" value="{}"><br><label for="qual">Quality </label><input type="text" id="qual" name="qual" value="{}"><br><input type="submit" value="Start"></form><a href="streamlinkhistory">History</a>'.format(self.last_stream, self.last_quality)
+        html = '<form action="/twitch"><legend><b>Twitch</b></legend><label for="stream">Stream </label><input type="text" id="stream" name="stream" value="{}"><br><label for="qual">Quality </label><input type="text" id="qual" name="qual" value="{}"><br><input type="submit" value="Start"></form><a href="streamlinkhistory">History</a><br>'.format(self.last_stream, self.last_quality)
         if self.streamlink is not None:
             html += '<a href="{}">Watch {}</a><br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
         if self.notification is not None:

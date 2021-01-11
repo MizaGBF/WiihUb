@@ -52,41 +52,26 @@ class VLC():
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
         if path.startswith('/medialist'):
-            handler.send_response(200)
-            handler.send_header('Content-type', 'text/html')
-            handler.end_headers()
-            handler.wfile.write(self.get_media_list().encode('utf-8'))
+            handler.answer(200, {'Content-type': 'text/html'}, self.get_media_list().encode('utf-8'))
             return True
         elif path.startswith('/vlcstop'):
             self.stop_vlc()
             self.notification = "VLC has been stopped"
-            handler.send_response(303)
-            handler.send_header('Location','http://{}'.format(host_address))
-            handler.end_headers()
+            handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
         elif path.startswith('/play?'):
-            path_str = str(path)[len('/play?'):]
-            param_strs = path_str.split('&')
-            options = {}
-            for s in param_strs:
-                ss = s.split('=')
-                options[ss[0]] = ss[1]
+            options = self.server.getOptions(path, 'play')
             try:
                 self.stop_vlc()
-                self.vlc = subprocess.Popen([self.path, urllib.parse.unquote(options['file']), '--sout=#transcode{width=1280,height=720,fps=25,vcodec=h264,vb=800,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=96,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:8001/'])
-                time.sleep(5)
-                handler.send_response(200)
-                handler.send_header('Content-type', 'text/html')
-                handler.end_headers()
-                handler.wfile.write('<html><meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div class="elem"><a href="/medialist">Back</a><br><br><form action="/vlcstop"><input type="submit" value="Stop VLC"></form></div><div class="elem"><video width="320" height="240" controls autoplay src="http://192.168.1.11:8001"></video></div></body></html>'.encode('utf-8'))
+                self.vlc = subprocess.Popen([self.path, urllib.parse.unquote(options['file']), '--sout=#transcode{width=1280,height=720,fps=30,vcodec=h264,vb=800,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=128,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:8001/'])
+                time.sleep(1)
+                handler.answer(200, {'Content-type': 'text/html'}, '<html><meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div class="elem"><a href="/medialist">Back</a><br><br><form action="/vlcstop"><input type="submit" value="Stop VLC"></form></div><div class="elem"><video width="320" height="240" controls autoplay src="http://192.168.1.11:8001"></video></div></body></html>'.encode('utf-8'))
             except Exception as e:
                 print("Failed to open media")
                 print(e)
                 self.stop_vlc()
                 self.notification = "Failed to open {}<br>{}".format(urllib.parse.unquote(options.get('file', '')), e)
-                handler.send_response(303)
-                handler.send_header('Location','http://{}/medialist'.format(host_address))
-                handler.end_headers()
+                handler.answer(303, {'Location':'http://{}/medialist'.format(host_address)})
             return True
         return False
 
