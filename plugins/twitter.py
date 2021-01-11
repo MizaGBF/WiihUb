@@ -1,6 +1,7 @@
 import tweepy
 import webbrowser
 import datetime
+import urllib.parse
 
 class Twitter():
     def __init__(self, server):
@@ -76,7 +77,7 @@ class Twitter():
         elif path.startswith('/twittersearch?'):
             options = self.server.getOptions(path, 'twittersearch')
             try:
-                handler.answer(200, {'Content-type': 'text/html'}, self.get_search(options['query'], int(options.get('page', 1))).encode('utf-8'))
+                handler.answer(200, {'Content-type': 'text/html'}, self.get_search(urllib.parse.unquote(options['query']), int(options.get('page', 1))).encode('utf-8'))
                 return True
             except Exception as e:
                 print("Twitter search error")
@@ -216,7 +217,7 @@ class Twitter():
         html += '</div>'
         
         count = 1
-        for pt in tweepy.Cursor(self.twitter_api.search, q=query, tweet_mode='extended').pages():
+        for pt in tweepy.Cursor(self.twitter_api.search, q='{} -filter:retweets'.format(query), tweet_mode='extended').pages():
             if count < page:
                 count += 1
                 continue
@@ -230,6 +231,23 @@ class Twitter():
         html += '</body>'
         return html
 
+    def formatTweetText(self, text):
+        if len(text) > 0:
+            text = text.replace('\n', '<br>')
+            c = 0
+            while True:
+                tmp = text.find('#', c)
+                if tmp == -1: break
+                c = tmp
+                tmp = text.find(' ', c)
+                if tmp == -1: tmp = len(text) - 1
+                if c < tmp:
+                    hashtag = text[c:tmp]
+                    replaced = '<a href="/twittersearch?query={}">{}</a>'.format(urllib.parse.quote(hashtag), hashtag)
+                    text = text[:c] + replaced + text[tmp:]
+                    c += len(replaced)
+        return text
+
     def statusToHTML(self, status):
         try:
             tweet = ""
@@ -240,9 +258,7 @@ class Twitter():
             else:
                 tweet += '<img height="16" src="{}" align="left" />'.format(status.user.profile_image_url)
             tweet += '<b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Link</a><br>'.format(status.user.screen_name, status.user.name, self.getTimedeltaStr(datetime.datetime.utcnow() - status.created_at), status.id_str)
-            if status.full_text.startswith('MAIS'): print(status.full_text)
-            if len(status.full_text) > 0:
-                tweet += status.full_text.replace('\n', '<br>')
+            tweet += self.formatTweetText(status.full_text)
             try:
                 tweet += '<br><img src="{}">'.format(status.entities['media'][0]['media_url'])
                 tweet = tweet.replace(status.entities['media'][0]['url'], '')
