@@ -48,3 +48,12 @@ class Example():
     def get_manual(self):
         return '<b>Plugin Example</b><br>This is an example.'
 ```
+# Streamlink modification  
+You must do a slight moditication to [Streamlink](https://github.com/streamlink/streamlink) to receive Twitch on your Wii U.  
+Locate your Streamlink folder and then go into:  
+`Streamlink/pkgs/streamlink_cli/utils`  
+Open `http_server.py` and search for the line  
+`conn.send(b"Content-Type: video/unknown\r\n")`  
+Replace it with:  
+`conn.send(b"Content-Type: video/mp4\r\n")`
+Make sure to keep the indentation using spaces.  
