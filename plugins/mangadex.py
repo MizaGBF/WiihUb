@@ -191,11 +191,13 @@ class Mangadex():
             try:
                 url = urllib.parse.unquote(options.get('url', 'https://mangadex.org/'))
                 l = self.getCategory(url)
-                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;">'
+                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 200px;display: inline-block;}</style><title>WiihUb</title><body style="background-color: #242424;">'
                 footer = '<div class="elem"><a href="/">Back</a><br><a href="/mdgenres">Genres</a></div>'
                 html += footer
+                html += '<div class="elem">'
                 for m in l:
-                    html += '<div class="elem"><a href="/mdseries?url=https://mangadex.org{}"><img height="150" src="/mdthumb?id={}" align="left" />{}</a></div>'.format(m[0], self.urlToID(m[0]), m[1])
+                    html += '<div class="subelem"><a href="/mdseries?url=https://mangadex.org{}"><img style="max-height:300px;max-width:200px;height:auto;width:auto;" src="/mdthumb?id={}" /><br>{}</a></div>'.format(m[0], self.urlToID(m[0]), m[1])
+                html += '</div>'
                 html += footer
                 handler.answer(200, {'Content-type':'text/html'}, html.encode('utf-8'))
             except Exception as e:

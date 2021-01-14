@@ -239,11 +239,13 @@ class Twitter():
                 tmp = text.find('#', c)
                 if tmp == -1: break
                 c = tmp
-                tmp = text.find(' ', c)
-                if tmp == -1: tmp = len(text) - 1
+                while True:
+                    tmp += 1
+                    if not text[tmp].isalnum() or tmp == len(text):
+                        break
                 if c < tmp:
                     hashtag = text[c:tmp]
-                    replaced = '<a href="/twittersearch?query={}">{}</a>'.format(urllib.parse.quote(hashtag), hashtag)
+                    replaced = '<a href="/twittersearch?query={}">{}</a>&nbsp;'.format(urllib.parse.quote(hashtag), hashtag)
                     text = text[:c] + replaced + text[tmp:]
                     c += len(replaced)
         return text
@@ -257,7 +259,7 @@ class Twitter():
                 tweet += "<b>Retweet from</b>&nbsp;"
             else:
                 tweet += '<img height="16" src="{}" align="left" />'.format(status.user.profile_image_url)
-            tweet += '<b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Link</a><br>'.format(status.user.screen_name, status.user.name, self.getTimedeltaStr(datetime.datetime.utcnow() - status.created_at), status.id_str)
+            tweet += '<b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Open</a><br>'.format(status.user.screen_name, status.user.name, self.getTimedeltaStr(datetime.datetime.utcnow() - status.created_at), status.id_str)
             tweet += self.formatTweetText(status.full_text)
             try:
                 tweet += '<br><img src="{}">'.format(status.entities['media'][0]['media_url'])
