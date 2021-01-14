@@ -55,5 +55,5 @@ Locate your Streamlink folder and then go into:
 Open `http_server.py` and search for the line  
 `conn.send(b"Content-Type: video/unknown\r\n")`  
 Replace it with:  
-`conn.send(b"Content-Type: video/mp4\r\n")`
+`conn.send(b"Content-Type: video/mp4\r\n")`  
 Make sure to keep the indentation using spaces.  
