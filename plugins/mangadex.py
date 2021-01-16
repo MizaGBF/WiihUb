@@ -192,11 +192,31 @@ class Mangadex():
                 url = urllib.parse.unquote(options.get('url', 'https://mangadex.org/'))
                 l = self.getCategory(url)
                 html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 200px;display: inline-block;}</style><title>WiihUb</title><body style="background-color: #242424;">'
-                footer = '<div class="elem"><a href="/">Back</a><br><a href="/mdgenres">Genres</a></div>'
+                footer = '<div class="elem"><a href="/">Back</a><br><a href="/mdgenres">Genres</a>'
+                if url != 'https://mangadex.org/':
+                    if len(url.split('/')) > 5:
+                        purl = '/'.join(url.split('/')[:(-2 if url.endswith('/') else -1)])
+                        if purl.endswith('/'): purl += '{}'
+                        else: purl += '/{}'
+                        pid = int(url.split('/')[(-2 if url.endswith('/') else -1)]) - 1
+                    else:
+                        gid = self.urlToID(url)
+                        purl = url + '/{}/0/'.format(self.know_tags[int(gid)].lower()) + '{}'
+                        pid = 0
+                    footer += '<br><div style="font-size:30px">'
+                    for i in range(max(0, pid - 5), max(0, pid + 5)):
+                        if i < pid: footer += '<a href="/md?url={}">{}</a> # '.format(purl.format(i+1), i+1)
+                        elif i > pid: footer += ' # <a href="/md?url={}">{}</a>'.format(purl.format(i+1), i+1)
+                        else: footer += "<b>{}</b>".format(pid+1)
+                    footer += "</div>"
+                    
+                footer += '</div>'
                 html += footer
                 html += '<div class="elem">'
                 for m in l:
                     html += '<div class="subelem"><a href="/mdseries?url=https://mangadex.org{}"><img style="max-height:300px;max-width:200px;height:auto;width:auto;" src="/mdthumb?id={}" /><br>{}</a></div>'.format(m[0], self.urlToID(m[0]), m[1])
+                if len(l) == 0:
+                    html += "No more mangas in this category"
                 html += '</div>'
                 html += footer
                 handler.answer(200, {'Content-type':'text/html'}, html.encode('utf-8'))

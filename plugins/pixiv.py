@@ -3,6 +3,8 @@ from urllib.request import urlopen
 from urllib import request
 import urllib.parse
 import base64
+from PIL import Image, ImageFont, ImageDraw
+from io import BytesIO
 
 class Pixiv():
     def __init__(self, server):
@@ -15,7 +17,7 @@ class Pixiv():
         self.api = None
 
     def login(self):
-        if self.running is not None: return
+        if self.running == False: return
         try:
             self.api = AppPixivAPI()
             if self.token is None:
@@ -32,10 +34,17 @@ class Pixiv():
         self.server.data["pixiv_login"] = self.credentials
         self.server.data["pixiv_token"] = self.token
 
-    def downloadImage(self, url):
+    def downloadImageAndConvert(self, url):
         req = request.Request(url, headers={'Referer': 'https://app-api.pixiv.net/'})
         url_handle = request.urlopen(req)
-        return url_handle.read()
+        data = url_handle.read()
+        url_handle.close()
+        file_data = BytesIO(data)
+        dt = Image.open(file_data)
+        rgb_im = dt.convert('RGB')
+        temp = BytesIO()
+        rgb_im.save(temp, format="png")
+        return temp.getbuffer()
 
     def retrieve(self, options={}):
         if len(self.cache) > 400: self.cache = {}
@@ -58,9 +67,9 @@ class Pixiv():
                 if illust.page_count > 1:
                     self.cache[illust.id] = []
                     for p in illust.meta_pages:
-                        self.cache[illust.id].append([[p.image_urls.medium, p.image_urls.medium.split('.')[-1]], [p.image_urls.square_medium, p.image_urls.square_medium.split('.')[-1]]])
+                        self.cache[illust.id].append([p.image_urls.medium, p.image_urls.square_medium])
                 else:
-                    self.cache[illust.id] = [[[illust.image_urls.medium, illust.image_urls.medium.split('.')[-1]], [illust.image_urls.square_medium, illust.image_urls.square_medium.split('.')[-1]]]]
+                    self.cache[illust.id] = [[illust.image_urls.medium, illust.image_urls.square_medium]]
         return json_result.illusts
 
     def add_bookmark(self, id):
@@ -83,7 +92,7 @@ class Pixiv():
         if path.startswith('/pixiv') and self.running is None: self.login() # only login if used
         if not self.running: return False
         host_address = handler.headers.get('Host')
-        if path.startswith('/pixivlogin'):
+        if path.startswith('/pixivlogin'): # debug, remove later
             try:
                 self.login()
                 self.notification = 'Login successful'
@@ -96,6 +105,9 @@ class Pixiv():
             options = self.server.getOptions(path, 'pixiv')
             try:
                 illusts = self.retrieve(options)
+                if illusts is None:
+                    self.login()
+                    illusts = self.retrieve(options)
                 mode = int(options.get('mode', 0))
 
                 html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 200px;display: inline-block;}</style><title>WiihUb</title><body style="background-color: #242424;">'
@@ -122,7 +134,7 @@ class Pixiv():
             except Exception as e:
                 print("Failed to open list")
                 print(e)
-                self.notification = 'Failed to access pixiv, mode {}'.format(options.get('mode', ''))
+                self.notification = 'Failed to access pixiv, mode {}'.format(options.get('mode', 0))
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
         elif path.startswith('/pixivpage?'):
@@ -181,9 +193,9 @@ class Pixiv():
                 num = int(options.get('num', 0))
                 img = self.cache[id][num][qual]
                 if isinstance(img[0], str):
-                    self.cache[id][num][qual][0] = self.downloadImage(img[0])
+                    self.cache[id][num][qual] = self.downloadImageAndConvert(img)
                     img = self.cache[id][num][qual]
-                handler.answer(200, {'Content-type': 'image/'+img[1]}, img[0])
+                handler.answer(200, {'Content-type': 'image/jpeg'}, img)
             except Exception as e:
                 print("Failed to open image")
                 print(e)

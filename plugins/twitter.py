@@ -159,10 +159,8 @@ class Twitter():
         
         html += '<div class="elem">{}</div>'.format(self.statusToHTML(item))
         html += '<div class="elem"><b>First Replies</b></div>'
-        for r in tweepy.Cursor(self.twitter_api.search, q='to:{}'.format(item.user.name), since_id=item.id_str, tweet_mode='extended').items(30):
-            if not hasattr(r, 'in_reply_to_status_id_str'):
-                continue
-            if r.in_reply_to_status_id_str == item.id_str:
+        for r in tweepy.Cursor(self.twitter_api.search, q='to:{}'.format(item.user.screen_name), result_type='recent', since_id=item.id_str, tweet_mode='extended').items():
+            if hasattr(r, 'in_reply_to_status_id_str') and r.in_reply_to_status_id_str == item.id_str:
                 html += '<div class="elem">{}</div>'.format(self.statusToHTML(r))
         html += '</div>'
         html += '</body>'
@@ -216,16 +214,19 @@ class Twitter():
         html += '<br>' + page_footer
         html += '</div>'
         
-        count = 1
-        for pt in tweepy.Cursor(self.twitter_api.search, q='{} -filter:retweets'.format(query), tweet_mode='extended').pages():
-            if count < page:
+        try:
+            count = 1
+            for pt in tweepy.Cursor(self.twitter_api.search, q='{} -filter:retweets'.format(query), tweet_mode='extended').pages():
+                if count < page:
+                    count += 1
+                    continue
                 count += 1
-                continue
-            count += 1
-            for cst in pt:
-                status = cst
-                html += '<div class="elem">{}</div>'.format(self.statusToHTML(cst))
-            break
+                for cst in pt:
+                    status = cst
+                    html += '<div class="elem">{}</div>'.format(self.statusToHTML(cst))
+                break
+        except:
+            html += '<div class="elem">No more results</div>'
         html += '</div>'
         html += '<div class="elem">' + page_footer + '</div>'
         html += '</body>'

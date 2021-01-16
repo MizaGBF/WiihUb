@@ -2,3 +2,4 @@ tweepy==3.9.0
 EbookLib==0.17.1
 beautifulsoup4==4.9.3
 pixivpy>=3.5.10
+pillow==8.1.0

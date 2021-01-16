@@ -57,3 +57,12 @@ Open `http_server.py` and search for the line
 Replace it with:  
 `conn.send(b"Content-Type: video/mp4\r\n")`  
 Make sure to keep the indentation using spaces.  
+  
+Pre-roll ads make the Wii U unable to load the playlist, another modification is required as a result:
+On Streamlink 2.0.0, go to:
+`Streamlink/pkgs/streamlink/plugins`  
+Open `twitch.py` and search for the function  
+`def access_token(self, is_live, channel_or_vod):`  
+A bit lower, you'll find:
+`"playerType": "embed"`
+Replace `embed` by `frontpage` and you are done.

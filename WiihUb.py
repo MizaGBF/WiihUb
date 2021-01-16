@@ -89,7 +89,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v2.1.0"
+        self.version = "v2.2.0"
         try:
             with open('config.json') as f:
                 self.data = json.load(f)
@@ -116,6 +116,7 @@ class WiihUb(ThreadingHTTPServer):
     def run(self):
         print("WiihUb - "+self.version)
         print("Server started, listening on port 8000")
+        print("Do Ctrl+C to stop the server")
         self.request_queue_size = 80
         try:
             self.serve_forever()
