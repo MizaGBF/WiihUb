@@ -67,7 +67,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(write)
 
     def get_interface(self):
-        html = '<style>.elem {border: 2px solid black;display: inline-block;background-color: #b8b8b8;}</style><title>WiihUb</title><body style="background-color: #242424;"><div><div class="elem"><b>WiihUb '+self.server.version+'</b><br><a href="/manual">Help</a></div>'
+        html = self.server.get_body() + '<style>.elem {display: inline-block;border: 2px solid black;max-width: 300px;background-color: #b8b8b8;}</style><div><div class="elem"><img src="/favicon.ico" /><b>WiihUb '+self.server.version+'</b><br><a href="/manual">Help</a></div>'
         for p in self.server.plugins:
             try:
                 html += '<div class="elem">'+p.get_interface()+'</div>'
@@ -77,7 +77,7 @@ class Handler(BaseHTTPRequestHandler):
         return html
 
     def get_manual(self):
-        html = '<style>.elem {border: 2px solid black;display: inline-block;background-color: #b8b8b8;}</style><title>WiihUb</title><body style="background-color: #242424;"><div><div class="elem"><b>WiihUb '+self.server.version+'</b><br><a href="/">Back</a></div>'
+        html = self.server.get_body() + '<style>.elem {display: inline-block;border: 2px solid black;max-width: 300px;background-color: #b8b8b8;}</style><div><div class="elem"><img src="/favicon.ico" /><b>WiihUb Help '+self.server.version+'</b><br><a href="/">Back</a></div>'
         for p in self.server.plugins:
             try:
                 html += '<div class="elem">'+p.get_manual()+'</div>'
@@ -89,7 +89,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v2.2.0"
+        self.version = "v3.0.0"
         try:
             with open('config.json') as f:
                 self.data = json.load(f)
@@ -107,7 +107,7 @@ class WiihUb(ThreadingHTTPServer):
         self.blacklist = []
         self.is_running = True
         self.user_agent_common = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36"
-        self.icon = bytearray([0, 0, 1, 0, 1, 0, 17, 16, 16, 0, 1, 0, 4, 0, 104, 1, 0, 0, 22, 0, 0, 0, 40, 0, 0, 0, 17, 0, 0, 0, 32, 0, 0, 0, 1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 94, 0, 0, 0, 255, 0, 104, 64, 11, 0, 15, 100, 9, 0, 255, 147, 8, 0, 18, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 102, 102, 102, 102, 102, 102, 102, 102, 96, 0, 0, 0, 102, 102, 85, 85, 83, 97, 6, 102, 96, 0, 0, 0, 102, 102, 101, 85, 54, 17, 16, 102, 96, 0, 0, 0, 102, 102, 102, 83, 97, 17, 17, 6, 96, 0, 0, 0, 102, 102, 102, 102, 102, 102, 102, 102, 96, 0, 0, 0, 102, 102, 100, 68, 68, 66, 102, 102, 96, 0, 0, 0, 102, 102, 68, 68, 68, 68, 38, 102, 96, 0, 0, 0, 102, 102, 68, 38, 102, 68, 38, 102, 96, 0, 0, 0, 102, 102, 68, 38, 102, 68, 38, 102, 96, 0, 0, 0, 102, 102, 68, 38, 102, 68, 38, 102, 96, 0, 0, 0, 102, 102, 68, 38, 102, 68, 38, 102, 96, 0, 0, 0, 102, 102, 68, 38, 102, 68, 38, 102, 96, 0, 0, 0, 102, 102, 68, 38, 102, 68, 38, 102, 96, 0, 0, 0, 102, 102, 68, 38, 102, 68, 38, 102, 96, 0, 0, 0, 102, 102, 102, 102, 102, 102, 102, 102, 96, 0, 0, 0, 102, 102, 102, 102, 102, 102, 102, 102, 96, 0, 0, 0, 255, 255, 128, 0, 240, 39, 128, 0, 248, 67, 128, 0, 252, 129, 128, 0, 255, 255, 128, 0, 248, 15, 128, 0, 240, 7, 128, 0, 241, 199, 128, 0, 241, 199, 128, 0, 241, 199, 128, 0, 241, 199, 128, 0, 241, 199, 128, 0, 241, 199, 128, 0, 241, 199, 128, 0, 255, 255, 128, 0, 255, 255, 128, 0])
+        self.icon = bytearray([0, 0, 1, 0, 1, 0, 16, 16, 16, 0, 1, 0, 4, 0, 40, 1, 0, 0, 22, 0, 0, 0, 40, 0, 0, 0, 16, 0, 0, 0, 32, 0, 0, 0, 1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 94, 0, 0, 0, 255, 0, 104, 64, 11, 0, 15, 100, 9, 0, 255, 147, 8, 0, 18, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 102, 102, 102, 102, 102, 102, 102, 102, 102, 101, 85, 85, 54, 16, 102, 102, 102, 102, 85, 83, 97, 17, 6, 102, 102, 102, 101, 54, 17, 17, 16, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 68, 68, 68, 38, 102, 102, 102, 100, 68, 68, 68, 66, 102, 102, 102, 100, 66, 102, 100, 66, 102, 102, 102, 100, 66, 102, 100, 66, 102, 102, 102, 100, 66, 102, 100, 66, 102, 102, 102, 100, 66, 102, 100, 66, 102, 102, 102, 100, 66, 102, 100, 66, 102, 102, 102, 100, 66, 102, 100, 66, 102, 102, 102, 100, 66, 102, 100, 66, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 255, 255, 0, 0, 224, 79, 0, 0, 240, 135, 0, 0, 249, 3, 0, 0, 255, 255, 0, 0, 240, 31, 0, 0, 224, 15, 0, 0, 227, 143, 0, 0, 227, 143, 0, 0, 227, 143, 0, 0, 227, 143, 0, 0, 227, 143, 0, 0, 227, 143, 0, 0, 227, 143, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0])
         plugins.load(self)
     
         super().__init__(('',8000), Handler)
@@ -152,6 +152,8 @@ class WiihUb(ThreadingHTTPServer):
             print("Failed to save config.json")
             print(e)
 
+    def get_body(self):
+        return '<meta charset="UTF-8"><style>@keyframes gradient {0% {background-position: 0% 50%;}50% {background-position: 100% 50%;}100% {background-position: 0% 50%;}}</style><title>WiihUb</title><body style="background: linear-gradient(-45deg, #242424, #525252, #334a4f, #37496e); background-size: 400% 400%; animation: gradient 20s ease infinite; ">'
 
 if __name__ == '__main__':
     WiihUb().run()

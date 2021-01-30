@@ -122,7 +122,7 @@ class Twitter():
         return False
 
     def get_bookmarks(self):
-        html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
         html += '<div class="elem"><a href="/">Back</a><br><form action="/twitter"><label for="account">Account </label><input type="text" id="account" name="account" value=""><br><input type="submit" value="Search User"></form></div>'
         if self.notification is not None:
             html += '<div class="elem">{}</div>'.format(self.notification)
@@ -150,7 +150,7 @@ class Twitter():
         return msg
 
     def get_tweet(self, item):
-        html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><div>'
         html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
         if item.user.screen_name in self.bookmarks: html += '<a href="/twitterdel?account={}&source={}">Remove from bookmarks</a>'.format(item.user.screen_name, item.user.screen_name)
         else: html += '<a href="/twitteradd?account={}&source={}">Add to bookmarks</a>'.format(item.user.screen_name, item.user.screen_name)
@@ -167,7 +167,7 @@ class Twitter():
         return html
 
     def get_twitter(self, item, page=1):
-        html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><div>'
         html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
         if item.screen_name in self.bookmarks: html += '<a href="/twitterdel?account={}&source={}">Remove from bookmarks</a>'.format(item.screen_name, item.screen_name)
         else: html += '<a href="/twitteradd?account={}&source={}">Add to bookmarks</a>'.format(item.screen_name, item.screen_name)
@@ -200,7 +200,7 @@ class Twitter():
         return html
 
     def get_search(self, query, page=1):
-        html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><div>'
         html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
         page_footer = '<div style="font-size:30px">'
         for pi in range(max(1, page-5), max(1, page+5)):
@@ -261,23 +261,34 @@ class Twitter():
             else:
                 tweet += '<img height="16" src="{}" align="left" />'.format(status.user.profile_image_url)
             tweet += '<b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Open</a><br>'.format(status.user.screen_name, status.user.name, self.getTimedeltaStr(datetime.datetime.utcnow() - status.created_at), status.id_str)
-            tweet += self.formatTweetText(status.full_text)
+            text = status.full_text
+            if 'hashtags' in status.entities:
+                for h in reversed(status.entities['hashtags']):
+                    text = text[:h['indices'][0]] + '<a href="/twittersearch?query=' + text[h['indices'][0]:h['indices'][1]] + '">' + text[h['indices'][0]:h['indices'][1]] + '</a>&nbsp;' +  text[h['indices'][1]:]
+            tweet += text
             try:
-                tweet += '<br><img src="{}">'.format(status.entities['media'][0]['media_url'])
-                tweet = tweet.replace(status.entities['media'][0]['url'], '')
+                for i in range(len(status.extended_entities['media'])):
+                    try:
+                        if i == 0: tweet += '<br>'
+                        tweet += '<img src="{}">'.format(status.extended_entities['media'][i]['media_url'])
+                        tweet = tweet.replace(status.extended_entities['media'][i]['url'], '')
+                    except: pass
             except: pass
-            for m in status.entities['urls']:
-                if m['expanded_url'].startswith('https://twitter.com/'):
-                    urltid = m['expanded_url'].split('/')
-                    if len(urltid) > 0:
-                        tweet = tweet.replace(m['url'], '<a href="/tweet?id={}">{}</a>'.format(urltid[-1], m['expanded_url']))
-                else:
-                    tweet = tweet.replace(m['url'], '<a href="{}">{}</a>'.format(m['expanded_url'].replace('https://twitch.tv/', '/twitch?stream=').replace('http://twitch.tv/', '/twitch?stream='), m['expanded_url']))
-            for m in status.entities['user_mentions']:
-                tweet = tweet.replace('@'+m['screen_name'], '<a href="/twitter?account={}">@{}</a>'.format(m['screen_name'], m['screen_name']))
-            tweet += '<br><div style="font-size:12px">{} RT, {} Likes</div>'.format(status.retweet_count, status.favorite_count)
+            if 'urls' in status.entities:
+                for m in status.entities['urls']:
+                    if m['expanded_url'].startswith('https://twitter.com/'):
+                        urltid = m['expanded_url'].split('/')
+                        if len(urltid) > 0:
+                            tweet = tweet.replace(m['url'], '<a href="/tweet?id={}">{}</a>'.format(urltid[-1], m['expanded_url']))
+                    else:
+                        tweet = tweet.replace(m['url'], '<a href="{}">{}</a>'.format(m['expanded_url'].replace('https://twitch.tv/', '/twitch?stream=').replace('http://twitch.tv/', '/twitch?stream=').replace('https://m.twitch.tv/', '/twitch?stream=').replace('http://m.twitch.tv/', '/twitch?stream=').replace('https://www.twitch.tv/', '/twitch?stream=').replace('http://www.twitch.tv/', '/twitch?stream=').replace('https://www.pixiv.net/en/artworks/', '/pixivpage?id=').replace('https://www.pixiv.net/artworks/', '/pixivpage?id='), m['expanded_url']))
+            if 'user_mentions' in status.entities:
+                for m in status.entities['user_mentions']:
+                    tweet = tweet.replace('@'+m['screen_name'], '<a href="/twitter?account={}">@{}</a>'.format(m['screen_name'], m['screen_name']))
+                tweet += '<br><div style="font-size:12px">{} RT, {} Likes</div>'.format(status.retweet_count, status.favorite_count)
+            tweet = tweet.replace('?s=20', '')
         except Exception as e: 
-            return 'Tweet failed to load:<br>{}'.format(e)
+            return '<b>Tweet failed to load:</b><br>{}<br>{}'.format(e, status)
         return tweet
 
     def get_interface(self):

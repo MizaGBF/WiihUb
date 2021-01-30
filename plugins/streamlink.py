@@ -33,7 +33,7 @@ class Streamlink():
             self.streamlink = None
 
     def get_history(self):
-        html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
         html += '<div class="elem"><a href="/">Back</a><br>'
         if self.streamlink is not None:
             html += '<a href="{}">Watch {}</a><br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
@@ -41,10 +41,12 @@ class Streamlink():
             html += '<div class="elem">{}</div>'.format(self.notification)
             self.notification = None
         html += "</div>"
+        html += '<div class="elem">'
         for h in self.history:
-            html += '<div class="elem"><a href="/twitch?stream={}&quality={}">{} ({})</a></div>'.format(h[0], h[1], h[0], h[1])
+            html += '<a href="/twitch?stream={}&quality={}">{} ({})</a><br>'.format(h[0], h[1], h[0], h[1])
         if len(self.history) == 0:
-            html += '<div class="elem">No streams in the memory</div>'
+            html += 'No streams in the memory'
+        html += "</div>"
         return html
 
     def remove_from_history(self, user):
@@ -58,7 +60,7 @@ class Streamlink():
     def add_to_history(self, user, qual):
         self.remove_from_history(user)
         self.history = [[user, qual]] + self.history
-        if len(self.history) > 30: self.history = self.history[:30]
+        if len(self.history) > 50: self.history = self.history[:50]
 
     def process_get(self, handler, path):
         if path.startswith('/twitch?'):

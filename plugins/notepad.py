@@ -9,7 +9,7 @@ class Notepad():
         self.server.data["notepad_saved"] = self.notes
 
     def get_notes(self):
-        html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
         html += '<div class="elem"><a href="/">Back</a><br><a href="/newnote">New</a></div>'
         for i in range(len(self.notes)):
             html += '<div class="elem">'+self.notes[i]+'<br><br><a href="/editnote?id={}">Edit</a> # <a href="/delnote?id={}">Delete</a></div>'.format(i, i)
@@ -27,7 +27,7 @@ class Notepad():
                 default = self.notes[use_save]
                 hidden = '<input type="hidden" name="target" value="{}" />'.format(use_save)
 
-        html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
         html += '<div class="elem"><a href="/">Back</a></div>'
         html += '<div class="elem"><form action="/savenote"><legend><b>Notepad</b></legend><textarea id="content" name="content" rows="20" cols="100">{}</textarea><br>{}<input type="submit" value="Save"></form></div>'.format(default, hidden)
         return html

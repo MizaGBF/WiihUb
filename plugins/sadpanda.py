@@ -52,9 +52,14 @@ class Sadpanda():
                 continue
             ll = self.loadList(search, str(x), watched)
             self.loadGalleries(ll, True)
+        for gid in self.cache:
+            if self.stop_preload or not self.server.is_running: return
+            self.loadThumbnail(gid)
 
-    def requestPanda(self, url):
-        req = request.Request(url, headers={"Cookie": self.buildCookie(self.cookies)})
+    def requestPanda(self, url, headers={}):
+        headers["Cookie"] = self.buildCookie(self.cookies)
+        headers["user-Agent"] = self.server.user_agent_common
+        req = request.Request(url, headers=headers)
         url_handle = request.urlopen(req)
         self.updateCookie(url_handle.getheaders())
         return url_handle.read()
@@ -139,6 +144,7 @@ class Sadpanda():
                 req = request.Request("https://api.e-hentai.org/api.php", data=json.dumps({"method": "gdata","gidlist": ids,"namespace": 1}).encode('utf-8'))
                 url_handle = request.urlopen(req)
                 data = json.loads(url_handle.read())
+                url_handle.close()
                 for m in data['gmetadata']:
                     if 'error' not in m:
                         self.cache[m['gid']] = m
@@ -232,14 +238,25 @@ class Sadpanda():
             msg += "<br>"
         return msg
 
-    def loadImageFile(self, url):
+    def loadImageFile(self, url, panda_headers={}):
         if url.startswith('https://exhentai.org/'):
-            data = self.requestPanda(url)
+            data = self.requestPanda(url, headers=panda_headers)
         else:
             req = request.Request(url)
             url_handle = request.urlopen(req)
             data = url_handle.read()
+            url_handle.close()
         return data
+
+    def loadThumbnail(self, gid):
+        m = self.cache[gid]
+        if isinstance(m['thumbnail'], str):
+            data = self.loadImageFile(m['thumbnail'], {'Host': 'exhentai.org', 'Referer': 'https://exhentai.org/'})
+            if data is None: raise Exception('Failed to load thumbnail')
+            with self.lock:
+                self.cache[gid]['thumbnail'] = data
+                m = self.cache[gid]
+        return m
 
     def process_get(self, handler, path):
         if not self.running: return False
@@ -263,7 +280,7 @@ class Sadpanda():
                     panda = '/panda?'
                     hidden = ''
 
-                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;">'
+                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style>'
                 html += '<div class="elem"><form action="/panda"><legend><b>Sadpanda Browser</b></legend>{}<label for="search">Search </label><input type="text" id="search" name="search" value="{}"><br><input type="submit" value="Search"></form>{}</div>'.format(hidden, "" if search is None else urllib.parse.unquote(search.replace('+', ' ')).replace("'", '&#39;').replace('"', '&#34;'), back)
 
                 if page is None: page = "0"
@@ -301,25 +318,19 @@ class Sadpanda():
         elif path.startswith('/pandathumb/'):
             try:
                 gid = self.urlToIds(path)[0]
-                m = self.cache[gid]
-                
-                if isinstance(m['thumbnail'], str):
-                    with self.lock:
-                        time.sleep(0.75)
-                        data = self.loadImageFile(m['thumbnail'])
-                        if data is None: raise Exception('Failed to load thumbnail')
-                        self.cache[gid]['thumbnail'] = data
-                        m = self.cache[gid]
+                m = self.loadThumbnail(gid)
                 if not isinstance(m['thumbnail'], bytes): raise Exception('Thumbnail not loaded')
                 handler.answer(200, {}, m['thumbnail'])
             except Exception as e:
+                print('Failed to load thumbnail')
+                print(e)
                 handler.answer(404)
             return True
         elif path.startswith('/pandagallery/'):
             try:
                 self.retrieveGallery('https://exhentai.org/g/' + path[len('/pandagallery/'):])
                 m = self.cache[self.urlToIds(path)[0]]
-                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;">'
+                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style>'
                 html += '<div class="elem"><a href="/panda?">Back</a></div>'
                 html += '<div class="elem">'
                 if m['thumbnail'] is not None: html += '<img src="/pandathumb/{}" align="left" />'.format(path[len('/pandagallery/'):])
@@ -350,7 +361,7 @@ class Sadpanda():
                 m = self.cache[int(tk[-1].split('-')[0])]
                 if current >= int(m['filecount']): next_p = int(m['filecount'])
                 else: next_p = current + 1
-                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;padding: 10px 10px 10px 10px;font-size: 150%;}</style><title>WiihUb</title><body style="background-color: #242424;">'
+                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;padding: 10px 10px 10px 10px;font-size: 150%;}</style>'
                 html += '<div class="elem"><a href="/pandagallery/{}/{}">Back</a></div>'.format(m['gid'], m['token'])
                 html += '<div class="elem">'
                 html += '<b>' + m['title'] + '</b><br>'

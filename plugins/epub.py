@@ -47,7 +47,7 @@ class Epub():
     def get_book_list(self):
         try: fs = [f for f in listdir(self.folder) if (isfile(join(self.folder, f)) and f.endswith('.epub'))]
         except: fs = []
-        html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
         html += '<div class="elem"><a href="/">Back</a></div>'
         if self.notification is not None:
             html += '<div class="elem">{}</div>'.format(self.notification)

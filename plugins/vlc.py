@@ -12,7 +12,7 @@ class VLC():
         self.notification = None
         self.folder = self.server.data.get("vlc_folder", "medias")
         self.path = self.server.data.get("vlc_path", "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe")
-        if self.folder == "": self.folder = "books"
+        if self.folder == "": self.folder = "videos"
         if self.folder[-1] == "/": self.folder = self.folder[:-1]
         self.vlc = None
 
@@ -34,7 +34,7 @@ class VLC():
         try: fs = glob.glob(self.folder + '/**/*', recursive=True)
         except: fs = []
         format = ['.webm', '.mkv', '.flv', '.vob', '.gif', '.avi', '.rm', '.mpg', '.mp2', '.mpeg', '.mpe', '.mpv', '.mpg', '.mpeg', '.m2v', '.m4v', 'mp4']
-        html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div>'
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
         html += '<div class="elem"><a href="/">Back</a></div>'
         if self.notification is not None:
             html += '<div class="elem">{}</div>'.format(self.notification)
@@ -52,7 +52,11 @@ class VLC():
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
         if path.startswith('/medialist'):
-            handler.answer(200, {'Content-type': 'text/html'}, self.get_media_list().encode('utf-8'))
+            try: handler.answer(200, {'Content-type': 'text/html'}, self.get_media_list().encode('utf-8'))
+            except Exception as e:
+                print("Failed to open video list")
+                print(e)
+                handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
         elif path.startswith('/vlcstop'):
             self.stop_vlc()
@@ -63,9 +67,9 @@ class VLC():
             options = self.server.getOptions(path, 'play')
             try:
                 self.stop_vlc()
-                self.vlc = subprocess.Popen([self.path, urllib.parse.unquote(options['file']), '--sout=#transcode{width=1280,height=720,fps=30,vcodec=h264,vb=800,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=128,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:8001/'])
+                self.vlc = subprocess.Popen([self.path, urllib.parse.unquote(options['file']), '--no-sout-all', '--sout=#transcode{width=1280,height=720,fps=30,vcodec=h264,vb=800,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=128,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:8001/'])
                 time.sleep(1)
-                handler.answer(200, {'Content-type': 'text/html'}, '<html><meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;"><div class="elem"><a href="/medialist">Back</a><br><br><form action="/vlcstop"><input type="submit" value="Stop VLC"></form></div><div class="elem"><video width="320" height="240" controls autoplay src="http://192.168.1.11:8001"></video></div></body></html>'.encode('utf-8'))
+                handler.answer(200, {'Content-type': 'text/html'}, self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div class="elem"><a href="/medialist">Back</a><br><br><form action="/vlcstop"><input type="submit" value="Stop VLC"></form></div><div class="elem"><video width="320" height="240" controls autoplay src="http://192.168.1.11:8001"></video></div></body>'.encode('utf-8'))
             except Exception as e:
                 print("Failed to open media")
                 print(e)

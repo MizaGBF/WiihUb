@@ -24,6 +24,7 @@ class Mangadex():
             req = request.Request("https://mangadex.org", headers={"User-Agent": self.server.user_agent_common})
             url_handle = request.urlopen(req)
             self.updateCookie(url_handle.getheaders())
+            url_handle.close()
 
     def stop(self):
         self.server.data["mangadex_cookie"] = self.cookies
@@ -63,6 +64,7 @@ class Mangadex():
                 req = request.Request(url, headers={'User-Agent': self.server.user_agent_common})
                 url_handle = request.urlopen(req, timeout=10)
                 self.pages[index] = url_handle.read()
+                url_handle.close()
                 return True
             except:
                 self.pages[index] = url
@@ -76,6 +78,7 @@ class Mangadex():
                 url_handle = request.urlopen(req)
                 self.updateCookie(url_handle.getheaders())
                 data = json.loads(url_handle.read())
+                url_handle.close()
                 self.md_server = data['server']
                 self.hash = data['hash']
                 self.pages = []
@@ -98,8 +101,10 @@ class Mangadex():
         req = request.Request(url, headers={"User-Agent": self.server.user_agent_common, "Cookie": self.buildCookie(self.cookies)})
         url_handle = request.urlopen(req, timeout=10)
         self.updateCookie(url_handle.getheaders())
-        if use_json: return json.loads(url_handle.read())
-        else: return url_handle.read()
+        if use_json: data = json.loads(url_handle.read())
+        else: data = url_handle.read()
+        url_handle.close()
+        return data
 
     def getSeries(self, url):
         sid = str(self.urlToID(url))
@@ -177,7 +182,7 @@ class Mangadex():
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
         if path.startswith('/mdgenres'):
-            html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;">'
+            html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style>'
             html += '<div class="elem"><a href="/">Back</a></div>'
             html += '<div class="elem">'
             for id in self.know_tags:
@@ -191,7 +196,7 @@ class Mangadex():
             try:
                 url = urllib.parse.unquote(options.get('url', 'https://mangadex.org/'))
                 l = self.getCategory(url)
-                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 200px;display: inline-block;}</style><title>WiihUb</title><body style="background-color: #242424;">'
+                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 200px;display: inline-block;}</style>'
                 footer = '<div class="elem"><a href="/">Back</a><br><a href="/mdgenres">Genres</a>'
                 if url != 'https://mangadex.org/':
                     if len(url.split('/')) > 5:
@@ -244,7 +249,7 @@ class Mangadex():
             try:
                 url = urllib.parse.unquote(options['url'])
                 m = self.getSeries(url)
-                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><title>WiihUb</title><body style="background-color: #242424;">'
+                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style>'
                 footer = '<div class="elem"><a href="/md?">Back</a></div>'
                 
                 html += footer + '<div class="elem">'

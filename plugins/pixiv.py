@@ -1,4 +1,5 @@
 from pixivpy3 import *
+import pykakasi
 from urllib.request import urlopen
 from urllib import request
 import urllib.parse
@@ -11,24 +12,34 @@ class Pixiv():
         self.server = server
         self.notification = None
         self.running = None
-        self.cache = {}
+        self.imgs = {}
+        self.works = {}
+        self.users = {}
         self.credentials = self.server.data.get("pixiv_login", ["login", "password"])
         self.token = self.server.data.get("pixiv_token", None)
+        self.papi = None
         self.api = None
+        self.kks = pykakasi.kakasi()
 
-    def login(self):
+    def login(self, papi=True):
         if self.running == False: return
         try:
-            self.api = AppPixivAPI()
-            if self.token is None:
-                self.token = self.api.auth(self.credentials[0], self.credentials[1], None)
+            if papi:
+                self.papi = PixivAPI()
+                if self.token is None:
+                    self.token = self.papi.auth(self.credentials[0], self.credentials[1], None)
+                else:
+                    self.token = self.papi.auth(self.credentials[0], self.credentials[1], self.token)
+                self.papi.require_auth()
+                self.running = True
             else:
-                self.token = self.api.auth(self.credentials[0], self.credentials[1], self.token)
-            self.api.require_auth()
-            self.running = True
+                self.api = AppPixivAPI()
+                self.api.auth(self.credentials[0], self.credentials[1], None)
+                self.api.require_auth()
         except Exception as e:
-            print('Not logged on Pixiv')
-            self.running = False
+            print('Not logged on Pixiv,', papi)
+            if papi:
+                self.running = False
 
     def stop(self):
         self.server.data["pixiv_login"] = self.credentials
@@ -41,49 +52,91 @@ class Pixiv():
         url_handle.close()
         file_data = BytesIO(data)
         dt = Image.open(file_data)
+        width, height = dt.size
+        if width * height > 1024 * 1024:
+            if width > height: ratio = 1024 / width
+            else: ratio = 1024 / height
+            dt = dt.resize((round(width*ratio), round(height*ratio)), Image.NEAREST)
         rgb_im = dt.convert('RGB')
         temp = BytesIO()
         rgb_im.save(temp, format="png")
         return temp.getbuffer()
 
     def retrieve(self, options={}):
-        if len(self.cache) > 400: self.cache = {}
+         # clean up
+        if len(self.imgs) > 500: self.imgs = {}
+        if len(self.works) > 1000: self.works = {}
         
         mode = int(options.get('mode', 0))
+        page = int(options.get('page', 1))
         if mode == 0:
-            json_result = self.api.illust_follow()
+            json_result = self.papi.me_following_works(page=page)
         elif mode == 1:
-            json_result = self.api.user_illusts(int(options['userid']))
+            json_result = self.papi.users_works(int(options['userid']), page=page)
         elif mode == 2:
-            json_result = self.api.search_illust(urllib.parse.unquote(options['search'].replace('+', ' ')))
-        elif mode == -1:
-            json_result = self.api.illust_related(int(options['id']))
-        elif mode == -2:
-            json_result = self.api.illust_recommended(int(options['id']))
+            json_result = self.papi.search_works(urllib.parse.unquote(options['search'].replace('+', ' ')), page=page, mode='exact_tag')
+        elif mode == 3:
+            json_result = self.papi.ranking('illust', 'weekly', page)
+            tmp = []
+            for r in json_result.response:
+                for w in r.works:
+                    tmp.append(w.work)
+            json_result.response = tmp
+        elif mode == 4:
+            json_result = self.papi.works(int(options['id']))
         else:
             raise Exception('Unknown mode')
-        for illust in json_result.illusts:
-            if illust.id not in self.cache:
-                if illust.page_count > 1:
-                    self.cache[illust.id] = []
-                    for p in illust.meta_pages:
-                        self.cache[illust.id].append([p.image_urls.medium, p.image_urls.square_medium])
-                else:
-                    self.cache[illust.id] = [[illust.image_urls.medium, illust.image_urls.square_medium]]
-        return json_result.illusts
+        if json_result.response is None: # useful?
+            return []
+        for work in json_result.response:
+            self.users[work['user']['id']] = work['user']
+            if work['id'] not in self.works:
+                self.works[work['id']] = work
+            self.add_to_img_cache(work['id'])
+        return json_result.response
+
+    def add_to_img_cache(self, id):
+        if id in self.works:
+            work = self.works[id]
+            if work['id'] not in self.imgs:
+                self.imgs[work['id']] = [[work.image_urls['large'], work.image_urls['px_128x128']]]
+                for i in range(1, work['page_count']):
+                    self.imgs[work['id']].append([work.image_urls['large'].replace('_p0', '_p'+str(i))])
+        else:
+            self.retrieve({'mode':4, 'id':id})
+
+    def get_user(self, work):
+        if work['user']['id'] not in self.users:
+            self.users[work['user']['id']] = work['user']
+        return self.users[work['user']['id']]
 
     def add_bookmark(self, id):
-        self.api.illust_bookmark_add(id)
+        try:
+            self.api.illust_bookmark_add(id)
+        except:
+            self.login(False)
+            self.api.illust_bookmark_add(id)
 
     def del_bookmark(self, id):
-        self.api.illust_bookmark_delete(id)
+        try:
+            self.api.illust_bookmark_delete(id)
+        except:
+            self.login(False)
+            self.api.illust_bookmark_delete(id)
+
+    def add_follow(self, id):
+        self.papi.me_favorite_users_follow(id)
+
+    def del_follow(self, id):
+        self.papi.me_favorite_users_unfollow(id)
 
     def tagsToHTML(self, tags):
         html = ""
         for t in tags:
-            html += '<a href="/pixiv?mode=2&search={}">{}</a>&nbsp;'.format(urllib.parse.quote(t['name']), t['name'])
-            if 'translated_name' in t and t['translated_name'] != '' and t['translated_name'] is not None:
-                html += "{}&nbsp;".format(t['translated_name'])
+            html += '<a href="/pixiv?mode=2&search={}">{}</a>&nbsp;'.format(urllib.parse.quote(t), t)
+            result = self.kks.convert(t)
+            for item in result:
+                html += "{}&nbsp;".format(item['hepburn'])
             if t is not tags[-1]:
                 html += ", "
         return html
@@ -92,40 +145,51 @@ class Pixiv():
         if path.startswith('/pixiv') and self.running is None: self.login() # only login if used
         if not self.running: return False
         host_address = handler.headers.get('Host')
-        if path.startswith('/pixivlogin'): # debug, remove later
-            try:
-                self.login()
-                self.notification = 'Login successful'
-            except Exception as e:
-                print("Failed to open list")
-                print(e)
-                self.notification = 'Failed to login, {}'.format(e)
-            handler.answer(303, {'Location': 'http://{}'.format(host_address)})
-        elif path.startswith('/pixiv?'):
+        if path.startswith('/pixiv?'):
             options = self.server.getOptions(path, 'pixiv')
             try:
-                illusts = self.retrieve(options)
-                if illusts is None:
+                try:
+                    works = self.retrieve(options)
+                    if works is None: raise Exception()
+                except:
                     self.login()
-                    illusts = self.retrieve(options)
+                    works = self.retrieve(options)
                 mode = int(options.get('mode', 0))
+                page = int(options.get('page', 1))
 
-                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 200px;display: inline-block;}</style><title>WiihUb</title><body style="background-color: #242424;">'
-                footer = '<div class="elem"><a href="/">Back</a><br>{}</div>'.format(self.get_search_form(urllib.parse.unquote(options.get('search', '').replace('+', ' '))))
-                html += footer
+                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 200px;display: inline-block;}</style>'
 
-                html += '<div class="elem">'
+                body = '<div class="elem">'
                 if mode == 0:
-                    html += '<b>Following illustrations</b><br>'
+                    body += '<b>Following illustrations</b><br>'
                     src = ''
+                    pg = ''
                 elif mode == 1:
-                    html += '<b>{}\'s latest works</b><br>'.format(illusts[0].user.name)
-                    src = '&src=' + base64.b64encode('&mode=1&userid={}'.format(illusts[0].user.id).encode('ascii')).decode('ascii')
+                    body += '<b>{}\'s latest works</b><br>'.format(works[0].user.name)
+                    src = '&src=' + base64.b64encode('&mode=1&userid={}'.format(works[0].user.id).encode('ascii')).decode('ascii')
+                    pg = '&userid=' + options.get('userid', '')
                 elif mode == 2:
-                    html += '<b>Search: </b>{}<br>'.format(urllib.parse.unquote(options.get('search', '').replace('+', ' ')))
+                    body += '<b>Search: </b>{}<br>'.format(urllib.parse.unquote(options.get('search', '').replace('+', ' ')))
                     src = '&src=' + base64.b64encode('&mode=2&search={}'.format(urllib.parse.quote(options.get('search', ''))).encode('ascii')).decode('ascii')
-                for i in illusts:
-                    html += '<div class="subelem"><a href="/pixivpage?id={}{}"><img height="150" src="/pixivimg?id={}&qual=1" /></a><br><b>{}</b></div>'.format(i.id, src, i.id, i.title)
+                    pg = '&search=' + options.get('search', '')
+                elif mode == 3:
+                    body += '<b>Ranking:<br>'
+                    src = '&src=' + base64.b64encode('&mode=3'.encode('ascii')).decode('ascii')
+                    pg = ''
+                if src == '' and 'src' in options: src = '&src=' + options['src']
+                
+                footer = '<div class="elem"><a href="/">Back</a><br><a href="/pixiv?">Following Works</a><br><a href="/pixiv?mode=3">Ranking</a><br>{}<br>'.format(self.get_search_form(urllib.parse.unquote(options.get('search', '').replace('+', ' '))))
+                footer += '<div style="font-size:30px">'
+                for i in range(max(1, int(page)-5), int(page)+5):
+                    if i < page: footer += '<a href="/pixiv?mode={}&page={}{}{}">{}</a> # '.format(mode, i, pg, src, i)
+                    elif i > page: footer += ' # <a href="/pixiv?mode={}&page={}{}{}">{}</a>'.format(mode, i, pg, src, i)
+                    else: footer += "<b>{}</b>".format(page)
+                footer += '</div></div>'
+                html += footer
+                html += body
+                
+                for work in works:
+                    html += '<div class="subelem"><a href="/pixivpage?id={}{}"><img height="150" src="/pixivimg?id={}&qual=1" {} /></a><br><b>{}</b></div>'.format(work['id'], src, work['id'], ('style="border-style: solid;border-color: red"' if work['favorite_id'] != 0 else '') , work['title'])
                 html += '</div>'
                 
                 html += footer
@@ -140,27 +204,26 @@ class Pixiv():
         elif path.startswith('/pixivpage?'):
             options = self.server.getOptions(path, 'pixivpage')
             try:
-                illust = self.api.illust_detail(int(options['id']))['illust']
+                if int(options['id']) in self.works:
+                    work = self.works[int(options['id'])]
+                else:
+                    if 'mode' not in options: options['mode'] = 4
+                    try:
+                        works = self.retrieve(options)
+                        if works is None: raise Exception()
+                        work = works[0]
+                    except:
+                        self.login()
+                        work = self.retrieve(options)[0]
                 src = base64.b64decode(options.get('src', '')).decode('ascii')
+                user = self.get_user(work)
                 
-                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {display: inline-block;}</style><title>WiihUb</title><body style="background-color: #242424;">'
-                footer = '<div class="elem"><a href="/pixiv?{}">Back</a><br>{}</div>'.format(src, self.get_search_form())
+                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} </style>'
+                footer = '<div class="elem"><a href="/pixiv?{}">Back</a><br><a href="/pixiv?">Following Works</a><br><a href="/pixiv?mode=3">Ranking</a><br>{}</div>'.format(src, self.get_search_form())
                 html += footer
-
-                for i in range(0, illust['page_count']):
-                    html += '<div class="elem"><img src="/pixivimg?id={}&qual=0&num={}" /></div>'.format(illust['id'], i)
-                html += '<div class="elem"><b>{}</b>&nbsp;{}<br><a href="/pixiv?mode=1&userid={}">{}</a>&nbsp;{}<br>{}<br>Tags:<br>{}<br>'.format(illust['title'], ('<a href="/pixivbookmark?id={}&add=1{}">Bookmarked</a>'.format(illust['id'], ('' if src == '' else '&src={}'.format(src))) if illust['is_bookmarked'] else '<a href="/pixivbookmark?id={}&add=0{}">Not bookmarked</a>'.format(illust['id'], ('' if src == '' else '&src={}'.format(src)))), illust['user']['id'], illust['user']['name'], ('Followed' if illust['user']['is_followed'] else 'Not followed'), illust['caption'], self.tagsToHTML(illust['tags']))
-                html += '</div>'
-                
-                html += '<div class="elem"><b>Related Works</b><br>'
-                illusts = self.retrieve({'mode':-1, 'id':illust['id']})
-                for i in illusts:
-                    html += '<div class="subelem"><a href="/pixivpage?id={}"><img height="100" src="/pixivimg?id={}&qual=1" /></a></div>'.format(i.id, i.id)
-                html += '</div>'
-                html += '<div class="elem"><b>Recommended Works</b><br>'
-                illusts = self.retrieve({'mode':-2, 'id':illust['id']})
-                for i in illusts:
-                    html += '<div class="subelem"><a href="/pixivpage?id={}"><img height="100" src="/pixivimg?id={}&qual=1" /></a></div>'.format(i.id, i.id)
+                for i in range(0, work['page_count']):
+                    html += '<div class="elem"><img src="/pixivimg?id={}&qual=0&num={}" /></div>'.format(work['id'], i)
+                html += '<div class="elem"><b>{}</b>&nbsp;{}<br><a href="/pixiv?mode=1&userid={}">{}</a>&nbsp;{}<br>{}<br>Tags:<br>{}<br>'.format(work.title, ('<a href="/pixivbookmark?id={}&add=1{}">Bookmarked</a>'.format(work['id'], ('' if src == '' else '&src={}'.format(src))) if work['favorite_id'] != 0 else '<a href="/pixivbookmark?id={}&add=0{}">Not bookmarked</a>'.format(work['id'], ('' if src == '' else '&src={}'.format(src)))), user['id'], user['name'], ('<a href="/pixivfollow?id={}&userid={}&add=1{}">Followed</a>'.format(work['id'], user['id'], ('' if src == '' else '&src={}'.format(src))) if user['is_following'] else '<a href="/pixivfollow?id={}&userid={}&add=0{}">Not followed</a>'.format(work['id'], user['id'], ('' if src == '' else '&src={}'.format(src)))), work.caption, self.tagsToHTML(work['tags']))
                 html += '</div>'
                 
                 html += footer
@@ -169,7 +232,7 @@ class Pixiv():
             except Exception as e:
                 print("Failed to open page")
                 print(e)
-                self.notification = 'Failed to open page {}'.format(options.get('id', ''))
+                self.notification = 'Failed to open page {}<br>{}'.format(options.get('id', ''), e)
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
         elif path.startswith('/pixivbookmark?'):
@@ -180,8 +243,25 @@ class Pixiv():
                 src = options.get('src', '')
                 if add == 0: self.add_bookmark(id)
                 else: self.del_bookmark(id)
+                self.works.pop(id)
             except Exception as e:
-                print("Failed to open image")
+                print("Failed to bookmark image")
+                print(e)
+            handler.answer(303, {'Location': 'http://{}/pixivpage?id={}{}'.format(host_address, id, ('' if src == '' else '&src={}'.format(src)))})
+            return True
+        elif path.startswith('/pixivfollow?'):
+            options = self.server.getOptions(path, 'pixivfollow')
+            try:
+                id = int(options['id'])
+                userid = int(options['userid'])
+                add = int(options['add'])
+                src = options.get('src', '')
+                if add == 0: self.add_follow(userid)
+                else: self.del_follow(userid)
+                self.works.pop(id)
+                self.users.pop(userid)
+            except Exception as e:
+                print("Failed to follow user")
                 print(e)
             handler.answer(303, {'Location': 'http://{}/pixivpage?id={}{}'.format(host_address, id, ('' if src == '' else '&src={}'.format(src)))})
             return True
@@ -191,15 +271,17 @@ class Pixiv():
                 id = int(options['id'])
                 qual = int(options['qual'])
                 num = int(options.get('num', 0))
-                img = self.cache[id][num][qual]
+                if id not in self.imgs:
+                    self.add_to_img_cache(id)
+                img = self.imgs[id][num][qual]
                 if isinstance(img[0], str):
-                    self.cache[id][num][qual] = self.downloadImageAndConvert(img)
-                    img = self.cache[id][num][qual]
+                    self.imgs[id][num][qual] = self.downloadImageAndConvert(img)
+                    img = self.imgs[id][num][qual]
                 handler.answer(200, {'Content-type': 'image/jpeg'}, img)
             except Exception as e:
                 print("Failed to open image")
                 print(e)
-                handler.answer(303, {'Location': 'http://{}'.format(host_address)})
+                handler.answer(200, {'Content-type': 'text/html'}, "Load failed".encode('utf-8'))
             return True
         return False
 
@@ -213,9 +295,7 @@ class Pixiv():
         if self.running == False:
             html = '<b>Pixiv Browser</b><br>Not logged in'
         else:
-            html = '<b>Pixiv Browser</b><br><a href="/pixiv?">Home</a>'
-            if self.running == True:
-                html += '<br><a href="/pixivlogin">Relogin</a>'
+            html = '<b>Pixiv Browser</b><br><a href="/pixiv?">Following Works</a><br><a href="/pixiv?mode=3">Ranking</a>'
             if self.notification is not None:
                 html += "<br>{}".format(self.notification)
                 self.notification = None
