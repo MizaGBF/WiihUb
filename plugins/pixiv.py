@@ -86,8 +86,6 @@ class Pixiv():
             json_result = self.papi.works(int(options['id']))
         else:
             raise Exception('Unknown mode')
-        if json_result.response is None: # useful?
-            return []
         for work in json_result.response:
             self.users[work['user']['id']] = work['user']
             if work['id'] not in self.works:
@@ -189,7 +187,7 @@ class Pixiv():
                 html += body
                 
                 for work in works:
-                    html += '<div class="subelem"><a href="/pixivpage?id={}{}"><img height="150" src="/pixivimg?id={}&qual=1" {} /></a><br><b>{}</b></div>'.format(work['id'], src, work['id'], ('style="border-style: solid;border-color: red"' if work['favorite_id'] != 0 else '') , work['title'])
+                    html += '<div class="subelem"><a href="/pixivpage?id={}{}"><img height="150" src="/pixivimg?id={}&qual=1" {} /></a><br><b>{}</b></div>'.format(work['id'], src, work['id'], ('style="border-style: solid;border-color: red"' if (work['favorite_id'] != 0 and work['favorite_id'] is not None) else '') , work['title'])
                 html += '</div>'
                 
                 html += footer
@@ -223,7 +221,8 @@ class Pixiv():
                 html += footer
                 for i in range(0, work['page_count']):
                     html += '<div class="elem"><img src="/pixivimg?id={}&qual=0&num={}" /></div>'.format(work['id'], i)
-                html += '<div class="elem"><b>{}</b>&nbsp;{}<br><a href="/pixiv?mode=1&userid={}">{}</a>&nbsp;{}<br>{}<br>Tags:<br>{}<br>'.format(work.title, ('<a href="/pixivbookmark?id={}&add=1{}">Bookmarked</a>'.format(work['id'], ('' if src == '' else '&src={}'.format(src))) if work['favorite_id'] != 0 else '<a href="/pixivbookmark?id={}&add=0{}">Not bookmarked</a>'.format(work['id'], ('' if src == '' else '&src={}'.format(src)))), user['id'], user['name'], ('<a href="/pixivfollow?id={}&userid={}&add=1{}">Followed</a>'.format(work['id'], user['id'], ('' if src == '' else '&src={}'.format(src))) if user['is_following'] else '<a href="/pixivfollow?id={}&userid={}&add=0{}">Not followed</a>'.format(work['id'], user['id'], ('' if src == '' else '&src={}'.format(src)))), work.caption, self.tagsToHTML(work['tags']))
+                html += '<div>{}</div>'.format(work)
+                html += '<div class="elem"><b>{}</b>&nbsp;{}<br><a href="/pixiv?mode=1&userid={}">{}</a>&nbsp;{}<br>{}<br>Tags:<br>{}<br>'.format(work.title, ('<a href="/pixivbookmark?id={}&add=1{}">Bookmarked</a>'.format(work['id'], ('' if src == '' else '&src={}'.format(src))) if (work['favorite_id'] != 0 and work['favorite_id'] is not None) else '<a href="/pixivbookmark?id={}&add=0{}">Not bookmarked</a>'.format(work['id'], ('' if src == '' else '&src={}'.format(src)))), user['id'], user['name'], ('<a href="/pixivfollow?id={}&userid={}&add=1{}">Followed</a>'.format(work['id'], user['id'], ('' if src == '' else '&src={}'.format(src))) if user['is_following'] else '<a href="/pixivfollow?id={}&userid={}&add=0{}">Not followed</a>'.format(work['id'], user['id'], ('' if src == '' else '&src={}'.format(src)))), work.caption, self.tagsToHTML(work['tags']))
                 html += '</div>'
                 
                 html += footer
@@ -302,5 +301,5 @@ class Pixiv():
         return html
 
     def get_manual(self):
-        html = '<b>Pixiv Browser plugin</b><br>Lets you access pixiv.net. A valid account username and password must be set in config.json.'
+        html = '<b>Pixiv Browser plugin</b><br>Lets you access pixiv.net.<br>A valid account username and password must be set in config.json.<br>Bookmarked works appear with a red border.'
         return html

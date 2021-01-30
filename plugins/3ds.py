@@ -15,6 +15,7 @@ class N3DS():
         if self.folder[-1] == "/": self.folder = self.folder[:-1]
         self.stream = None
         self.current_file = ''
+        self.current_size = 0
 
     def stop(self):
         self.server.data["3ds_folder"] = self.folder
@@ -32,7 +33,6 @@ class N3DS():
         for m in fs:
             if m.endswith('.mp4'):
                 html += '<a href="/3dsplay?file={}">{}</a><br>'.format(m, m[len(self.folder)+1:])
-                break
         if len(fs) == 0: html += "No files found in the '{}' folder".format(self.folder)
         html += '</div>'
         return html
@@ -43,11 +43,11 @@ class N3DS():
         if self.stream is not None: self.stream.close()
         self.stream = f
         self.current_file = file
+        self.current_size = path.getsize(file)
 
-    def read(self, file, pos, chunksize=8192):
-        self.open(file)
+    def read(self, file, pos, chunksize=10485760):
         self.stream.seek(pos)
-        return self.stream.read(), self.stream.tell()
+        return self.stream.read(chunksize), self.stream.tell()
 
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
@@ -62,7 +62,7 @@ class N3DS():
             options = self.server.getOptions(path, '3dsplay')
             try:
                 self.open(urllib.parse.unquote(options['file']))
-                handler.answer(200, {'Content-type': 'text/html'}, (self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div class="elem"><a href="/3dsvideolist">Back</a><br><br></div><div class="elem"><video width="400" controls="controls" type="video/mp4" src="' + 'http://{}/3dsstream?file={}"></video></div></body>'.format(host_address, options['file'])).encode('utf-8'))
+                handler.answer(200, {'Content-type': 'text/html'}, (self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div class="elem"><a href="/3dsvideolist">Back</a></div><div class="elem"><video width="400" controls="controls" type="video/mp4" src="' + 'http://{}/3dsstream?file={}"></video></div></body>'.format(host_address, options['file'])).encode('utf-8'))
             except Exception as e:
                 print("Failed to open media")
                 print(e)
@@ -72,14 +72,27 @@ class N3DS():
         elif path.startswith('/3dsstream?'):
             options = self.server.getOptions(path, '3dsstream')
             try:
+                self.open(urllib.parse.unquote(options['file']))
                 file_range = handler.headers.get('Range')
+                print("## Range:", file_range)
                 if file_range is None:
-                    file_range = 0
+                    range_start = 0
+                    range_end = None
                 else:
-                    file_range = int(file_range.split('=')[-1].split('-')[0])
-                data, pos = self.read(urllib.parse.unquote(options['file']), file_range)
-                content_range = 'bytes %s-%s/%s' % (file_range, pos, len(data))
-                handler.answer(200, {'Content-type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length':str(len(data)), 'Content-Range':content_range}, data)
+                    tmp = file_range.split('=')[-1].split('-')
+                    range_start = int(tmp[0])
+                    try: range_end = int(tmp[1]) + 1
+                    except: range_end = self.current_size
+                if (range_end is not None and range_end > self.current_size) or range_start >= self.current_size:
+                    handler.answer(416)
+                else:
+                    if range_end is None:
+                         data, pos = self.read(urllib.parse.unquote(options['file']), range_start)
+                    else:
+                        data, pos = self.read(urllib.parse.unquote(options['file']), range_start, range_end-range_start)
+                    content_range = 'bytes %s-%s/%s' % (range_start, pos-1, self.current_size)
+                    print("## B Content-Range:", content_range)
+                    handler.answer((200 if (pos-range_start==self.current_size) else 206), {'Content-type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length':str(len(data)), 'Content-Range':content_range}, data)
             except Exception as e:
                 print("Failed to stream media")
                 print(e)

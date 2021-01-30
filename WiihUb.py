@@ -89,7 +89,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v3.0.0"
+        self.version = "v3.0.1"
         try:
             with open('config.json') as f:
                 self.data = json.load(f)
@@ -153,7 +153,7 @@ class WiihUb(ThreadingHTTPServer):
             print(e)
 
     def get_body(self):
-        return '<meta charset="UTF-8"><style>@keyframes gradient {0% {background-position: 0% 50%;}50% {background-position: 100% 50%;}100% {background-position: 0% 50%;}}</style><title>WiihUb</title><body style="background: linear-gradient(-45deg, #242424, #525252, #334a4f, #37496e); background-size: 400% 400%; animation: gradient 20s ease infinite; ">'
+        return '<meta charset="UTF-8"><title>WiihUb</title><body style="background-color: #252f33">'
 
 if __name__ == '__main__':
     WiihUb().run()
