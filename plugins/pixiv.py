@@ -221,7 +221,6 @@ class Pixiv():
                 html += footer
                 for i in range(0, work['page_count']):
                     html += '<div class="elem"><img src="/pixivimg?id={}&qual=0&num={}" /></div>'.format(work['id'], i)
-                html += '<div>{}</div>'.format(work)
                 html += '<div class="elem"><b>{}</b>&nbsp;{}<br><a href="/pixiv?mode=1&userid={}">{}</a>&nbsp;{}<br>{}<br>Tags:<br>{}<br>'.format(work.title, ('<a href="/pixivbookmark?id={}&add=1{}">Bookmarked</a>'.format(work['id'], ('' if src == '' else '&src={}'.format(src))) if (work['favorite_id'] != 0 and work['favorite_id'] is not None) else '<a href="/pixivbookmark?id={}&add=0{}">Not bookmarked</a>'.format(work['id'], ('' if src == '' else '&src={}'.format(src)))), user['id'], user['name'], ('<a href="/pixivfollow?id={}&userid={}&add=1{}">Followed</a>'.format(work['id'], user['id'], ('' if src == '' else '&src={}'.format(src))) if user['is_following'] else '<a href="/pixivfollow?id={}&userid={}&add=0{}">Not followed</a>'.format(work['id'], user['id'], ('' if src == '' else '&src={}'.format(src)))), work.caption, self.tagsToHTML(work['tags']))
                 html += '</div>'
                 

@@ -27,7 +27,8 @@ class N3DS():
             for i in range(len(lines)):
                 if not lines[i].startswith(self.folder):
                     lines[i] = self.folder + '/' + lines[i]
-                lines[i] = lines[i][:-1]
+                if len(lines[i]) > 0 and lines[i][-1] == '\n':
+                    lines[i] = lines[i][:-1]
             return lines
 
     def get_media_list(self):

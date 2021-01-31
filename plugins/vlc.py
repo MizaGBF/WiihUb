@@ -69,7 +69,7 @@ class VLC():
                 self.stop_vlc()
                 self.vlc = subprocess.Popen([self.path, urllib.parse.unquote(options['file']), '--no-sout-all', '--sout=#transcode{width=1280,height=720,fps=30,vcodec=h264,vb=800,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=128,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:8001/'])
                 time.sleep(1)
-                handler.answer(200, {'Content-type': 'text/html'}, self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div class="elem"><a href="/medialist">Back</a><br><br><form action="/vlcstop"><input type="submit" value="Stop VLC"></form></div><div class="elem"><video width="320" height="240" controls autoplay src="http://192.168.1.11:8001"></video></div></body>'.encode('utf-8'))
+                handler.answer(200, {'Content-type': 'text/html'}, (self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div class="elem"><a href="/medialist">Back</a><br><br><form action="/vlcstop"><input type="submit" value="Stop VLC"></form></div><div class="elem"><video width="320" height="240" controls autoplay src="http://192.168.1.11:8001"></video></div></body>').encode('utf-8'))
             except Exception as e:
                 print("Failed to open media")
                 print(e)
