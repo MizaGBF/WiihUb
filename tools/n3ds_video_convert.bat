@@ -1,14 +1,14 @@
 @echo off
 set inputFile=%~1
 set ffmpegPath=ffmpeg.exe
-echo %inputFile%
-echo %ffmpegPath%
+echo The file to convert is %inputFile%
+echo The path to FFmpeg is %ffmpegPath%
 Set COUNTER=0
 FOR %%i IN ("%inputFile%") DO (
 set filename=%%~ni
 )
-del temp.txt
 :loop
+del temp.txt
 set /A MIN=COUNTER*50
 set HOUR=0
 :while
