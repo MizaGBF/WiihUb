@@ -81,6 +81,9 @@ Replace `embed` by `frontpage` and you are done.
 # 3DS Video Encoding  
 I use [FFmpeg](https://ffmpeg.org/download.html) to encode my videos to the right format for the New 3DS.  
 A simple example with a command line would be:
-`bin\ffmpeg.exe -i input.whatever -filter:v "scale=-1:360:flags=lanczos" -c:v libx264 -c:a aac output.mp4`  
+`bin\ffmpeg.exe -i input.whatever -filter:v "scale=-1:360:flags=lanczos, fps=24" -c:v libx264 -qscale:v 4 -c:a aac -b:a 128k output.mp4`  
 `input.whatever` being the input file (for example: my_cat.mp4) and `output.mp4` whatever you want the resulting file to be named.  
-The New 3DS/2DS internet browser only supports MP4 format (Video: H.264 - MPEG-4 AVC, Audio: AAC - ISO / IEC 14496-3 MPEG-4AAC, MP3) and resolution lower than 480p.  
+The New 3DS/2DS internet browser only supports MP4 format (Video: H.264 - MPEG-4 AVC, Audio: AAC - ISO / IEC 14496-3 MPEG-4AAC, MP3), resolution lower than 480p and up to one hour.  
+  
+The plugin also have a simple playlist system to alleviate the one hour limit.  
+You can put a `.txt` file in the folder, containing the name of one file per line, and loading it will put all the videos on the same page.  
