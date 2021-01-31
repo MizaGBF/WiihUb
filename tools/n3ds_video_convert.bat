@@ -1,6 +1,6 @@
 @echo off
 set inputFile=%~1
-set ffmpegPath=C:\Users\Fabien\Desktop\ffmpeg\bin\ffmpeg.exe
+set ffmpegPath=ffmpeg.exe
 echo %inputFile%
 echo %ffmpegPath%
 Set COUNTER=0
