@@ -9,12 +9,19 @@ set filename=%%~ni
 )
 del temp.txt
 :loop
-set startf=0000%COUNTER%
-set startf=%startf:~-2%
+set /A MIN=COUNTER*50
+set HOUR=0
+:while
+if %MIN% GEQ 60 (
+    echo %MIN%
+    set /A MIN=MIN-60
+    set /A HOUR=HOUR+1
+    goto while
+)
 set /A COUNTER=COUNTER+1
 echo Making %filename%_%COUNTER%.mp4
-echo from %startf%:00:00
-%ffmpegPath% -y -ss %startf%:00:00 -t 00:59:59 -i "%inputFile%" -filter:v "scale=-1:360:flags=lanczos, fps=24" -c:v libx264 -c:a aac -b:a 128k %filename%_%COUNTER%.mp4 > temp.txt 2>&1
+echo from %HOUR%:%MIN%:00
+%ffmpegPath% -y -ss %HOUR%:%min%:00 -t 00:50:00 -i "%inputFile%" -filter:v "scale=-1:360:flags=lanczos, fps=24" -c:v libx264 -c:a aac -b:a 128k %filename%_%COUNTER%.mp4 > temp.txt 2>&1
 >nul find "video:0kB audio:0kB " temp.txt && (
   del temp.txt
   del %filename%_%COUNTER%.mp4
