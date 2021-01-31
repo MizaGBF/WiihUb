@@ -13,7 +13,6 @@ set /A MIN=COUNTER*50
 set HOUR=0
 :while
 if %MIN% GEQ 60 (
-    echo %MIN%
     set /A MIN=MIN-60
     set /A HOUR=HOUR+1
     goto while
