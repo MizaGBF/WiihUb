@@ -58,6 +58,20 @@ class Handler(BaseHTTPRequestHandler):
 
         self.answer(303, {'Location':'http://{}'.format(self.headers.get('Host'))})
 
+    def do_HEAD(self):
+        path = str(self.path)
+        if not self.check_client_address(self.client_address) or not self.check_blacklist(path):
+            return
+        print("HEAD Request", path)
+        for p in self.server.plugins:
+            try:
+                if p.process_post(self, path):
+                    return
+            except:
+                pass
+
+        self.answer(404)
+
     def answer(self, code : int, headers : dict = {}, write=None):
         self.send_response(code)
         for k in headers:
@@ -86,10 +100,9 @@ class Handler(BaseHTTPRequestHandler):
         html += '</div></body>'
         return html
 
-
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v3.0.1"
+        self.version = "v3.0.2"
         try:
             with open('config.json') as f:
                 self.data = json.load(f)

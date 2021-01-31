@@ -21,17 +21,35 @@ class N3DS():
         self.server.data["3ds_folder"] = self.folder
         pass
 
+    def load_playlist(self, file):
+        with open(file, "r") as f:
+            lines = f.readlines()
+            for i in range(len(lines)):
+                if not lines[i].startswith(self.folder):
+                    lines[i] = self.folder + '/' + lines[i]
+                lines[i] = lines[i][:-1]
+            return lines
+
     def get_media_list(self):
         try: fs = glob.glob(self.folder + '/**/*', recursive=True)
         except: fs = []
-        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;font-size:30px}</style><div>'
         html += '<div class="elem"><a href="/">Back</a></div>'
         if self.notification is not None:
             html += '<div class="elem">{}</div>'.format(self.notification)
             self.notification = None
         html += '<div class="elem">'
+        in_playlist = []
         for m in fs:
-            if m.endswith('.mp4'):
+            if m.endswith('.txt'):
+                try:
+                    files = self.load_playlist(m)
+                    for f in files: in_playlist.append(f.replace('\\', '/').split('/')[-1])
+                    html += '<a href="/3dsplay?file={}">Playlist: {}</a><br>'.format(m, m[len(self.folder)+1:-4])
+                except:
+                    pass
+        for m in fs:
+            if m.endswith('.mp4') and m.replace('\\', '/').split('/')[-1] not in in_playlist:
                 html += '<a href="/3dsplay?file={}">{}</a><br>'.format(m, m[len(self.folder)+1:])
         if len(fs) == 0: html += "No files found in the '{}' folder".format(self.folder)
         html += '</div>'
@@ -61,12 +79,20 @@ class N3DS():
         elif path.startswith('/3dsplay?'):
             options = self.server.getOptions(path, '3dsplay')
             try:
-                self.open(urllib.parse.unquote(options['file']))
-                handler.answer(200, {'Content-type': 'text/html'}, (self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div class="elem"><a href="/3dsvideolist">Back</a></div><div class="elem"><video width="400" controls="controls" type="video/mp4" src="' + 'http://{}/3dsstream?file={}"></video></div></body>'.format(host_address, options['file'])).encode('utf-8'))
+                if options['file'].endswith('.txt'):
+                    files = self.load_playlist(urllib.parse.unquote(options['file']))
+                else:
+                    files = [urllib.parse.unquote(options['file'])]
+                
+                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;font-size:30px}</style><div class="elem"><a href="/3dsvideolist">Back</a>' + '<br>{}</div>'.format(urllib.parse.unquote(options['file'])[len(self.folder)+1:])
+                for f in files:
+                    html += '<div class="elem"><video width="400" controls="controls" preload="metadata"><source src="http://{}/3dsstream?file={}" type="video/mp4" /></video></div>'.format(host_address, f)
+                html += '</body>'
+                handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
             except Exception as e:
-                print("Failed to open media")
+                print("Failed to open page")
                 print(e)
-                self.notification = "Failed to open {}<br>{}".format(urllib.parse.unquote(options.get('file', '')), e)
+                self.notification = "Failed to open page {}<br>{}".format(urllib.parse.unquote(options.get('file', '')), e)
                 handler.answer(303, {'Location':'http://{}/3dsvideolist'.format(host_address)})
             return True
         elif path.startswith('/3dsstream?'):
@@ -74,7 +100,6 @@ class N3DS():
             try:
                 self.open(urllib.parse.unquote(options['file']))
                 file_range = handler.headers.get('Range')
-                print("## Range:", file_range)
                 if file_range is None:
                     range_start = 0
                     range_end = None
@@ -91,7 +116,6 @@ class N3DS():
                     else:
                         data, pos = self.read(urllib.parse.unquote(options['file']), range_start, range_end-range_start)
                     content_range = 'bytes %s-%s/%s' % (range_start, pos-1, self.current_size)
-                    print("## B Content-Range:", content_range)
                     handler.answer((200 if (pos-range_start==self.current_size) else 206), {'Content-type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length':str(len(data)), 'Content-Range':content_range}, data)
             except Exception as e:
                 print("Failed to stream media")
