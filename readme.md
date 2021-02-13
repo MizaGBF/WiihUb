@@ -28,6 +28,7 @@ A new file named `config.json` must be created (or the one available in this git
 You can then open it with a notepad, or similar, to change the settings of each plugin.  
 One in particular you must touch is `"home_network"`, which is used to filter the incoming request.  
 To keep it simple, if your local ip is something like `192.168.1.53` for example, just put `"home_network": "192.168.1"`.  
+Be sure to escape any special character properly. For exemple, `"path": "C:\User\Example"` becomes `"path": "C:\\User\\Example"` or `"password": "a45*"$C"` becomes `"password": "a45*\"$C"`.  
 Once you are done modifying `config.json`, save and close it, and starts `WiihUb.py`.  
 Input the ip of your computer, followed by the port used, in an internet browser to test it's working (example: `http://192.168.1.11:8000`).  
 If it works, just do the same on your Wii U or 3DS to access the content.  
