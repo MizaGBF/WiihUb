@@ -7,6 +7,8 @@ import base64
 from PIL import Image, ImageFont, ImageDraw
 from io import BytesIO
 
+raise Exception('Pixiv plugin is disabled until pixivpy gets updated')
+
 class Pixiv():
     def __init__(self, server):
         self.server = server
@@ -37,8 +39,8 @@ class Pixiv():
                 self.api.auth(self.credentials[0], self.credentials[1], None)
                 self.api.require_auth()
         except Exception as e:
-            print('Not logged on Pixiv,', papi)
             if papi:
+                print('Not logged on Pixiv,', papi)
                 self.running = False
 
     def stop(self):
@@ -110,6 +112,7 @@ class Pixiv():
 
     def add_bookmark(self, id):
         try:
+            self.api.me_following_works().response[0] # testing if logged in
             self.api.illust_bookmark_add(id)
         except:
             self.login(False)
@@ -117,6 +120,7 @@ class Pixiv():
 
     def del_bookmark(self, id):
         try:
+            self.api.me_following_works().response[0] # testing if logged in
             self.api.illust_bookmark_delete(id)
         except:
             self.login(False)
