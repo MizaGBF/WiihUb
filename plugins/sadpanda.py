@@ -85,6 +85,15 @@ class Sadpanda():
                 print(e)
                 return False
 
+    def updateWatched(self, search=None, page=None, watched=False):
+        self.requestPanda("https://exhentai.org/mytags")
+        url = "https://exhentai.org/"
+        if search is None and page is None: data = self.requestPanda(url)
+        elif page is None: data = self.requestPanda(url + "?f_search={}".format(search))
+        elif search is None: data = self.requestPanda(url + "?page={}".format(page))
+        else: data = self.requestPanda(url + "?page={}&f_search={}".format(page, search))
+        return data
+
     def loadList(self, search=None, page=None, watched=False):
         try:
             url = "https://exhentai.org/"
@@ -95,6 +104,10 @@ class Sadpanda():
             else: data = self.requestPanda(url + "?page={}&f_search={}".format(page, search))
             soup = BeautifulSoup(data, 'html.parser')
             td = soup.find_all("td", {'class':['gl3m', 'glname']})
+            if len(td) == 0 and watched == True:
+                data = self.updateWatched(search, page, watched)
+                soup = BeautifulSoup(data, 'html.parser')
+                td = soup.find_all("td", {'class':['gl3m', 'glname']})
             res = []
             for e in td:
                 href = e.findChildren("a", recursive=True)

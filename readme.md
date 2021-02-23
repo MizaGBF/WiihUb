@@ -12,7 +12,6 @@ Flexible and simple plugin system. Currently support:
 * E-Pub reader (Support e-pub 2 and 3).  
 * Mangadex Browser.  
 * ExHentai Browser.  
-* Pixiv Browser.  
 * VLC Streaming (to watch videos from your PC using VLC to transcode to the proper format) (Wii U Only).  
 * Video Streaming for the 3DS (Video must be encoded to the right format, see below).  
 * Notepad, to take notes.  

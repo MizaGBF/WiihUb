@@ -1,5 +1,6 @@
 import cgi
 import os
+import datetime;
 
 class Screenshot():
     def __init__(self, server):
@@ -36,7 +37,7 @@ class Screenshot():
             data = form['file'].file.read()
             self.check_folder()
             try:
-                open("{}/{}".format(self.folder, filename), "wb").write(data)
+                open("{}/{}_{}".format(self.folder, int(datetime.datetime.now().timestamp()), filename), "wb").write(data)
                 self.push_notification("Saved {}".format(filename))
             except Exception as e:
                 print("Screenshot saving failed")
