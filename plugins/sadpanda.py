@@ -68,15 +68,11 @@ class Sadpanda():
         try:
             self.requestPanda("https://exhentai.org/?f_search=test")
             return True
-        except Exception as test:
-            print(test)
+        except:
             try:
                 req = request.Request('https://forums.e-hentai.org/index.php?act=Login&CODE=01', headers={'Referer': 'https://e-hentai.org/bounce_login.php?b=d&bt=1-1'}, data=urllib.parse.urlencode({"CookieDate": "1","b": "d","bt": "1-1","UserName": self.credentials[0],"PassWord": self.credentials[1],"ipb_login_submit": "Login!"}).encode('ascii'))
                 url_handle = request.urlopen(req)
                 self.updateCookie(url_handle.getheaders())
-                content = str(url_handle.read())
-                print(content.find("Logged as"))
-                print(url_handle.getheaders())
                 if "ipb_member_id" not in self.cookies and "ipb_pass_hash" not in self.cookies: raise Exception("Invalid credentials")
                 print("Successfully logged on sadpanda")
                 return True
@@ -85,9 +81,9 @@ class Sadpanda():
                 print(e)
                 return False
 
-    def updateWatched(self, search=None, page=None, watched=False):
-        self.requestPanda("https://exhentai.org/mytags")
-        url = "https://exhentai.org/"
+    def updateWatched(self, search, page):
+        self.requestPanda("https://exhentai.org/mytags", {'Host': 'exhentai.org', 'Referer': 'https://exhentai.org/watched'})
+        url = "https://exhentai.org/watched"
         if search is None and page is None: data = self.requestPanda(url)
         elif page is None: data = self.requestPanda(url + "?f_search={}".format(search))
         elif search is None: data = self.requestPanda(url + "?page={}".format(page))
@@ -105,7 +101,7 @@ class Sadpanda():
             soup = BeautifulSoup(data, 'html.parser')
             td = soup.find_all("td", {'class':['gl3m', 'glname']})
             if len(td) == 0 and watched == True:
-                data = self.updateWatched(search, page, watched)
+                data = self.updateWatched(search, page)
                 soup = BeautifulSoup(data, 'html.parser')
                 td = soup.find_all("td", {'class':['gl3m', 'glname']})
             res = []
@@ -431,6 +427,23 @@ class Sadpanda():
                 self.notification = 'Failed to open image {}'.format(options.get('file', ''))
                 handler.answer(404)
             return True
+        elif path.startswith('/pandareset'):
+            options = self.server.getOptions(path, 'pandareset')
+            try:
+                self.cookies = {}
+                res = self.login()
+                if res:
+                    self.running = True
+                    self.notification = 'Successfully cleared the cookies and logged in'
+                else:
+                    self.running = False
+                    self.notification = "Can't login, check your credentials"
+            except Exception as e:
+                print("Failed to clear sadpanda cookies")
+                print(e)
+                self.notification = 'Failed to '.format(options.get('file', ''))
+            handler.answer(303, {'Location': 'http://{}'.format(host_address)})
+            return True
         return False
 
     def process_post(self, handler, path):
@@ -438,9 +451,9 @@ class Sadpanda():
         
     def get_interface(self):
         if not self.running:
-            html = '<b>Sadpanda Browser</b><br>Not logged in'
+            html = '<b>Sadpanda Browser</b><br>Not logged in<br><a href="/pandareset">Login</a>'
         else:
-            html = '<b>Sadpanda Browser</b><br><a href="/panda?">Home</a><br><a href="/panda?watched=1">Watched</a>'
+            html = '<b>Sadpanda Browser</b><br><a href="/panda?">Home</a><br><a href="/panda?watched=1">Watched</a><br><a href="/pandareset">Clear Cookies</a>'
             if self.notification is not None:
                 html += "<br>{}".format(self.notification)
                 self.notification = None
