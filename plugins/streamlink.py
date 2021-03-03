@@ -44,7 +44,7 @@ class Streamlink():
         html += "</div>"
         html += '<div class="elem">'
         for h in self.history:
-            html += '<a href="/twitch?stream={}&quality={}">{} ({})</a><br>'.format(h[0], h[1], h[0], h[1])
+            html += '<a href="/twitch?stream={}&qual={}">{} ({})</a><br>'.format(h[0], h[1], h[0], h[1])
         if len(self.history) == 0:
             html += 'No streams in the memory'
         html += "</div>"
@@ -69,7 +69,7 @@ class Streamlink():
             options = self.server.getOptions(path, 'twitch')
             try:
                 if 'stream' not in options: raise Exception()
-                tmp = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('quality', '720p')])
+                tmp = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('qual', '720p')])
                 time.sleep(8)
                 print("Checking if stream is available...")
                 if tmp.poll() is None:
@@ -77,10 +77,10 @@ class Streamlink():
                     self.streamlink_kill()
                     self.streamlink = tmp
                     self.last_stream = options['stream']
-                    self.last_quality = options.get('quality', self.last_quality)
+                    self.last_quality = options.get('qual', self.last_quality)
                     self.streamlink_url = 'http://{}:{}'.format(host_address.split(":")[0], self.streamlink_port)
                     self.streamlink_current = '{}'.format(options['stream'])
-                    self.add_to_history(options['stream'], options.get('quality', self.last_quality))
+                    self.add_to_history(options['stream'], options.get('qual', self.last_quality))
                     handler.answer(303, {'Location': self.streamlink_url})
                 else:
                     try:
@@ -117,7 +117,7 @@ class Streamlink():
                 params = [self.streamlink_path]
                 o = urllib.parse.unquote(options.get('options', '').replace('+', ' '))
                 if o != '': params += o.split(' ')
-                params += ["--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "{}".format(urllib.parse.unquote(options['url'])), options.get('quality', 'best')]
+                params += ["--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "{}".format(urllib.parse.unquote(options['url'])), options.get('qual', 'best')]
                 tmp = subprocess.Popen(params)
                 time.sleep(8)
                 print("Checking if stream is available...")
