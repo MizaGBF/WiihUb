@@ -7,7 +7,7 @@ class Streamlink():
     def __init__(self, server):
         self.server = server
         self.last_stream = self.server.data.get("streamlink_stream", "")
-        self.last_quality = self.server.data.get("streamlink_quality", "720p")
+        self.last_quality = self.server.data.get("streamlink_quality", "720p60")
         self.history = self.server.data.get("streamlink_history", [])
         self.streamlink_path = self.server.data.get("streamlink_path", "streamlink")
         self.streamlink_port = self.server.data.get("streamlink_port", 65313)
@@ -69,7 +69,8 @@ class Streamlink():
             options = self.server.getOptions(path, 'twitch')
             try:
                 if 'stream' not in options: raise Exception()
-                tmp = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('qual', '720p')])
+                if options.get('qual', '') == '720p': options['qual'] = '720p60' # force 60 fps, twitch removed 30
+                tmp = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('qual', '720p60')])
                 time.sleep(8)
                 print("Checking if stream is available...")
                 if tmp.poll() is None:

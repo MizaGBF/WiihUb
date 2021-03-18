@@ -74,19 +74,19 @@ class Mangadex():
     def loadChapter(self, id):
         if id != self.chapter_id:
             try:
-                req = request.Request("https://mangadex.org/api/?id={}&server=null&saver=1&type=chapter".format(id), headers={"User-Agent": self.server.user_agent_common, "Cookie": self.buildCookie(self.cookies)})
+                req = request.Request("https://api.mangadex.org/v2/chapter/{}?saver=0&include=manga".format(id), headers={"User-Agent": self.server.user_agent_common, "Cookie": self.buildCookie(self.cookies)})
                 url_handle = request.urlopen(req)
                 self.updateCookie(url_handle.getheaders())
-                data = json.loads(url_handle.read())
+                data = json.loads(url_handle.read())['data']['chapter']
                 url_handle.close()
                 self.md_server = data['server']
                 self.hash = data['hash']
                 self.pages = []
-                self.title = data['title']
-                while len(self.pages) < len(data['page_array']): self.pages.append(None)
-                if len(data['page_array']) > 0:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=len(data['page_array'])) as executor:
-                        ft = {executor.submit(self.loadImage, "{}{}/{}".format(self.md_server, self.hash, data['page_array'][i]), i): i for i in range(0, len(data['page_array']))}
+                self.title = data['mangaTitle']
+                while len(self.pages) < len(data['pages']): self.pages.append(None)
+                if len(data['pages']) > 0:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=len(data['pages'])) as executor:
+                        ft = {executor.submit(self.loadImage, "{}{}/{}".format(self.md_server, self.hash, data['pages'][i]), i): i for i in range(0, len(data['pages']))}
                         count = 0
                         for f in concurrent.futures.as_completed(ft):
                             if f: count += 1
