@@ -158,13 +158,13 @@ class Mangadex():
         next = None
         for i in range(0, len(self.cache[id]['chapter_list'])):
             if cid == self.cache[id]['chapter_list'][i]['id']:
-                return (None if (i >= len(self.cache[id]['chapter_list'])) else self.cache[id]['chapter_list'][i+1]), self.cache[id]['chapter_list'][i], next
+                return (None if (i + 1 >= len(self.cache[id]['chapter_list'])) else self.cache[id]['chapter_list'][i+1]), self.cache[id]['chapter_list'][i], next
             next = self.cache[id]['chapter_list'][i]
         return None, None, None
 
     def get_tags(self):
         time.sleep(1)
-        return self.requestGet(f"{self.api}/manga/tag").json()['baseUrl']
+        return self.requestGet(f"{self.api}/manga/tag").json()
 
     def compress(self, data):
         with BytesIO(data) as file:
@@ -203,7 +203,7 @@ class Mangadex():
                 else:
                     mangas, total = self.get_mangas({'offset':page*self.page_limit})
                     app = ""
-                last = total // 20
+                last = total // self.page_limit
                 pl = list(range(max(page-10, 0), min(page+16, last+1)))
                 html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 200px;display: inline-block;}</style>'
 
@@ -222,7 +222,7 @@ class Mangadex():
 
                 html += '<div class="elem">'
                 for m in mangas:
-                    html += f'<div class="subelem"><a href="mangaseries?id={m["id"]}"><img style="max-height:300px;max-width:auto;height:270px;width:auto;" src="/mangaimg?url=https://uploads.mangadex.org/covers/{m["id"]}/{m["cover"]}" /><br>{m["attributes"]["title"]["en"]}</a></div>'
+                    html += f'<div class="subelem"><a href="mangaseries?id={m["id"]}"><img style="max-height:300px;max-width:auto;height:auto;width:200px;" src="/mangaimg?url=https://uploads.mangadex.org/covers/{m["id"]}/{m["cover"]}" /><br>{m["attributes"]["title"]["en"]}</a></div>'
                 if len(mangas) == 0:
                     html += "No mangas found"
                 html += '</div>'
@@ -232,7 +232,7 @@ class Mangadex():
             except Exception as e:
                 print("Failed to open mangadex")
                 self.server.printex(e)
-                self.notification = 'Failed to open <a href="{}">{}</a><br>{}'.format(options.get('url', ''), options.get('url', '')) # TODO
+                self.notification = 'Failed to open manga list, query="{}" / tag="{}"'.format(options.get('query', ''), options.get('tag', ''))
                 handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
         elif path.startswith('/mangaseries?'):
@@ -263,7 +263,7 @@ class Mangadex():
             except Exception as e:
                 print("Failed to open manga")
                 self.server.printex(e)
-                self.notification = 'Failed to open series {}'.format(options.get('id', '')) # TODO
+                self.notification = 'Failed to open series {}'.format(options.get('id', ''))
                 handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
         elif path.startswith('/mangachapter?'):
@@ -307,7 +307,7 @@ class Mangadex():
             except Exception as e:
                 print("Failed to open chapter")
                 self.server.printex(e)
-                self.notification = 'Failed to open <a href="{}">{}</a><br>{}'.format(options.get('url', ''), options.get('url', ''))
+                self.notification = 'Failed to open chapter {}/{}'.format(options.get('id', ''), options.get('cid', ''))
                 handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
         elif path.startswith('/mangatags'):
@@ -325,7 +325,7 @@ class Mangadex():
             except Exception as e:
                 print("Failed to open chapter")
                 self.server.printex(e)
-                self.notification = 'Failed to open <a href="{}">{}</a><br>{}'.format(options.get('url', ''), options.get('url', ''))
+                self.notification = 'Failed to open tag list'
                 handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
         elif path.startswith('/mangaimg?'):
@@ -352,7 +352,6 @@ class Mangadex():
             except Exception as e:
                 print("Failed to open image")
                 self.server.printex(e)
-                self.notification = 'Failed to open {}'.format(options.get('url', ''))
                 handler.answer(404, {})
             return True
         return False
