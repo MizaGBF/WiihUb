@@ -41,7 +41,7 @@ class Screenshot():
                 self.push_notification("Saved {}".format(filename))
             except Exception as e:
                 print("Screenshot saving failed")
-                print(e)
+                self.server.printex(e)
                 self.push_notification("Failed to save screenshot")
 
             host_address = handler.headers.get('Host')

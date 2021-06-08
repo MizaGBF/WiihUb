@@ -1,10 +1,8 @@
-from urllib.request import urlopen
-from urllib import request
-import urllib.parse
-import json
+from urllib.parse import quote, unquote
 from bs4 import BeautifulSoup
 import time
 import threading
+import requests
 
 class Sadpanda():
     def __init__(self, server):
@@ -56,33 +54,45 @@ class Sadpanda():
             if self.stop_preload or not self.server.is_running: return
             self.loadThumbnail(gid)
 
-    def requestPanda(self, url, headers={}):
+    def requestPandaText(self, url, headers={}):
         headers["Cookie"] = self.buildCookie(self.cookies)
         headers["user-Agent"] = self.server.user_agent_common
-        req = request.Request(url, headers=headers)
-        url_handle = request.urlopen(req)
-        self.updateCookie(url_handle.getheaders())
-        return url_handle.read()
+        headers["Connection"] = "close"
+        rep = requests.get(url, headers=headers)
+        if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
+        self.updateCookie(rep.headers)
+        return rep.text
+
+    def requestPandaRaw(self, url, headers={}):
+        headers["Cookie"] = self.buildCookie(self.cookies)
+        headers["user-Agent"] = self.server.user_agent_common
+        headers["Connection"] = "close"
+        rep = requests.get(url, headers=headers, stream=True)
+        if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
+        self.updateCookie(rep.headers)
+        raw = rep.raw.read()
+        return raw
 
     def login(self):
         try:
-            self.requestPanda("https://exhentai.org/?f_search=test")
+            page = self.requestPandaText("https://exhentai.org/?f_search=test")
+            if page == "": raise Exception()
             return True
         except:
             try:
-                req = request.Request('https://forums.e-hentai.org/index.php?act=Login&CODE=01', headers={'Referer': 'https://e-hentai.org/bounce_login.php?b=d&bt=1-1'}, data=urllib.parse.urlencode({"CookieDate": "1","b": "d","bt": "1-1","UserName": self.credentials[0],"PassWord": self.credentials[1],"ipb_login_submit": "Login!"}).encode('ascii'))
-                url_handle = request.urlopen(req)
-                self.updateCookie(url_handle.getheaders())
+                rep = requests.post('https://forums.e-hentai.org/index.php?act=Login&CODE=01', headers={'Referer': 'https://e-hentai.org/bounce_login.php?b=d&bt=1-1'}, data = {"CookieDate": "1","b": "d","bt": "1-1","UserName": self.credentials[0],"PassWord": self.credentials[1],"ipb_login_submit": "Login!"})
+                if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
+                self.updateCookie(rep.headers)
                 if "ipb_member_id" not in self.cookies and "ipb_pass_hash" not in self.cookies: raise Exception("Invalid credentials")
                 print("Successfully logged on sadpanda")
                 return True
             except Exception as e:
                 print("Failed to login on sadpanda")
-                print(e)
+                self.server.printex(e)
                 return False
 
     def updateWatched(self, search, page):
-        self.requestPanda("https://exhentai.org/mytags", {'Host': 'exhentai.org', 'Referer': 'https://exhentai.org/watched'})
+        self.requestPandaText("https://exhentai.org/mytags", {'Host': 'exhentai.org', 'Referer': 'https://exhentai.org/watched'})
         url = "https://exhentai.org/watched"
         if search is None and page is None: data = self.requestPanda(url)
         elif page is None: data = self.requestPanda(url + "?f_search={}".format(search))
@@ -94,10 +104,13 @@ class Sadpanda():
         try:
             url = "https://exhentai.org/"
             if watched: url += "watched"
-            if search is None and page is None: data = self.requestPanda(url)
-            elif page is None: data = self.requestPanda(url + "?f_search={}".format(search))
-            elif search is None: data = self.requestPanda(url + "?page={}".format(page))
-            else: data = self.requestPanda(url + "?page={}&f_search={}".format(page, search))
+            try:
+                if search is None and page is None: data = self.requestPandaText(url)
+                elif page is None: data = self.requestPandaText(url + "?f_search={}".format(search))
+                elif search is None: data = self.requestPandaText(url + "?page={}".format(page))
+                else: data = self.requestPandaText(url + "?page={}&f_search={}".format(page, search))
+            except:
+                data = self.updateWatched(search, page)
             soup = BeautifulSoup(data, 'html.parser')
             td = soup.find_all("td", {'class':['gl3m', 'glname']})
             if len(td) == 0 and watched == True:
@@ -119,7 +132,7 @@ class Sadpanda():
                     except: pass
             return res
         except Exception as e:
-            print(e)
+            self.server.printex(e)
             return None
 
     def urlToIds(self, url):
@@ -132,9 +145,9 @@ class Sadpanda():
             return None
 
     def loadGalleries(self, urls, dlThumb=False):
-        if len(self.cache) > 200:
+        if len(list(self.cache.keys())) > 400:
             keys = list(self.cache.keys())
-            for i in range(0, 150):
+            for i in range(0, 10):
                 self.cache.pop(keys[i])
         ids = []
         imgs = {}
@@ -150,10 +163,8 @@ class Sadpanda():
                 res.append(i[0])
         if len(ids) > 0:
             try:
-                req = request.Request("https://api.e-hentai.org/api.php", data=json.dumps({"method": "gdata","gidlist": ids,"namespace": 1}).encode('utf-8'))
-                url_handle = request.urlopen(req)
-                data = json.loads(url_handle.read())
-                url_handle.close()
+                r = requests.post('https://api.e-hentai.org/api.php', headers={'User-Agent':self.server.user_agent_common}, json={"method": "gdata","gidlist": ids,"namespace": 1})
+                data = r.json()
                 for m in data['gmetadata']:
                     if 'error' not in m:
                         self.cache[m['gid']] = m
@@ -181,7 +192,7 @@ class Sadpanda():
         if ids[0] not in self.cache: raise Exception() # placeholder
         pi = 0
         while True:
-            data = self.requestPanda(url + '/?p={}'.format(pi))
+            data = self.requestPandaText(url + '/?p={}'.format(pi))
             soup = BeautifulSoup(data, 'html.parser')
             div = soup.find_all("div", class_="gdtm")
             res = []
@@ -199,7 +210,7 @@ class Sadpanda():
         if len(parts) != 2: raise Exception('Test') # placeholder
         ids = parts[0].split('/')[-2:]
         m = self.cache[int(ids[1])]
-        data = self.requestPanda(url)
+        data = self.requestPandaText(url)
         soup = BeautifulSoup(data, 'html.parser')
         div = soup.find_all("div", id="i3")[0]
         img = div.findChildren("img", recursive=True)[0]
@@ -209,19 +220,18 @@ class Sadpanda():
 
     def updateCookie(self, headers):
         res = {}
-        for t in headers:
-            if t[0] != 'Set-Cookie': continue
-            ck = t[1].split('; ')
-            for c in ck:
-                s = c.split('=')
-                if s[0] in ['path', 'domain']: continue
-                res[s[0]] = s[1]
+        ck = headers.get('Set-Cookie', '').replace('domain=.e-hentai.org, ', '').replace('domain=forums.e-hentai.org, ', '').split('; ')
+        for c in ck:
+            s = c.split('=', 1)
+            if s[0] in ['path', 'domain'] or len(s) != 2: continue
+            res[s[0]] = s[1]
         self.cookies = {**self.cookies, **res}
 
     def buildCookie(self, c):
         s = ""
         for k in c:
             s += k + "=" + c[k] + "; "
+        if len(s) > 0: s = s[:-2]
         return s
 
     def formatTags(self, tags):
@@ -237,7 +247,7 @@ class Sadpanda():
                 v = t
                 tt = t
             if k not in res: res[k] = []
-            res[k].append([v, urllib.parse.quote(tt)])
+            res[k].append([v, quote(tt)])
         msg = ""
         for k in res:
             msg += k + ": "
@@ -249,12 +259,12 @@ class Sadpanda():
 
     def loadImageFile(self, url, panda_headers={}):
         if url.startswith('https://exhentai.org/'):
-            data = self.requestPanda(url, headers=panda_headers)
+            data = self.requestPandaRaw(url, headers=panda_headers)
         else:
-            req = request.Request(url)
-            url_handle = request.urlopen(req)
-            data = url_handle.read()
-            url_handle.close()
+            rep = requests.get(url, headers={'User-Agent':self.server.user_agent_common}, stream=True)
+            if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
+            self.updateCookie(rep.headers)
+            data = rep.raw.read()
         return data
 
     def loadThumbnail(self, gid):
@@ -290,7 +300,7 @@ class Sadpanda():
                     hidden = ''
 
                 html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style>'
-                html += '<div class="elem"><form action="/panda"><legend><b>Sadpanda Browser</b></legend>{}<label for="search">Search </label><input type="text" id="search" name="search" value="{}"><br><input type="submit" value="Search"></form>{}</div>'.format(hidden, "" if search is None else urllib.parse.unquote(search.replace('+', ' ')).replace("'", '&#39;').replace('"', '&#34;'), back)
+                html += '<div class="elem"><form action="/panda"><legend><b>Sadpanda Browser</b></legend>{}<label for="search">Search </label><input type="text" id="search" name="search" value="{}"><br><input type="submit" value="Search"></form>{}</div>'.format(hidden, "" if search is None else unquote(search.replace('+', ' ')).replace("'", '&#39;').replace('"', '&#34;'), back)
 
                 if page is None: page = "0"
                 if search is None: search = ""
@@ -320,7 +330,7 @@ class Sadpanda():
                 handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
             except Exception as e:
                 print("Failed to open list")
-                print(e)
+                self.server.printex(e)
                 self.notification = 'Failed to access {}, page {}'.format(options.get('search', ''), options.get('page', 'unknown'))
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
@@ -332,7 +342,7 @@ class Sadpanda():
                 handler.answer(200, {}, m['thumbnail'])
             except Exception as e:
                 print('Failed to load thumbnail')
-                print(e)
+                self.server.printex(e)
                 handler.answer(404)
             return True
         elif path.startswith('/pandagallery/'):
@@ -358,7 +368,7 @@ class Sadpanda():
                 handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
             except Exception as e:
                 print("Failed to open gallery")
-                print(e)
+                self.server.printex(e)
                 self.notification = 'Failed to open gallery {}'.format(path)
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
@@ -402,14 +412,14 @@ class Sadpanda():
                 handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
             except Exception as e:
                 print("Failed to open page")
-                print(e)
+                self.server.printex(e)
                 self.notification = 'Failed to open page {}'.format(path)
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
         elif path.startswith('/pandaimg?'):
             options = self.server.getOptions(path, 'pandaimg')
             try:
-                url = urllib.parse.unquote(options['file'])
+                url = unquote(options['file'])
                 if url in self.page_cache:
                     data = self.page_cache[url]
                 else:
@@ -423,7 +433,7 @@ class Sadpanda():
                 handler.answer(200, {'Content-type': 'image/' + ext}, data)
             except Exception as e:
                 print("Failed to open image")
-                print(e)
+                self.server.printex(e)
                 self.notification = 'Failed to open image {}'.format(options.get('file', ''))
                 handler.answer(404)
             return True
@@ -440,7 +450,7 @@ class Sadpanda():
                     self.notification = "Can't login, check your credentials"
             except Exception as e:
                 print("Failed to clear sadpanda cookies")
-                print(e)
+                self.server.printex(e)
                 self.notification = 'Failed to '.format(options.get('file', ''))
             handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True

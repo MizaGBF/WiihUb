@@ -34,7 +34,7 @@ class Twitter():
                 self.running = True
             except Exception as x:
                 print("Authentification failed")
-                print(x)
+                self.server.printex(x)
 
     def stop(self):
         self.server.data['twitter_bookmarks'] = self.bookmarks
@@ -56,7 +56,7 @@ class Twitter():
                 else: raise Exception('Account not found')
             except Exception as e:
                 print("Twitter error")
-                print(e)
+                self.server.printex(e)
                 self.notification += "Twitter Error\n" + str(e)
             handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
@@ -70,7 +70,7 @@ class Twitter():
                 else: raise Exception('Tweet not found')
             except Exception as e:
                 print("Tweet error")
-                print(e)
+                self.server.printex(e)
                 self.notification += "Tweet Error\n" + str(e)
             handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
@@ -81,7 +81,7 @@ class Twitter():
                 return True
             except Exception as e:
                 print("Twitter search error")
-                print(e)
+                self.server.printex(e)
                 self.notification += "Twitter search Error\n" + str(e)
             handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
@@ -96,7 +96,7 @@ class Twitter():
                         i += 1
             except Exception as e:
                 print("Twitter Bookmark Del error")
-                print(e)
+                self.server.printex(e)
             if 'source' in options: loc = 'http://{}/twitter?account={}'.format(host_address, options['source'])
             else: loc = 'http://{}'.format(host_address)
             handler.answer(303, {'Location': loc})
@@ -107,10 +107,9 @@ class Twitter():
                 self.bookmarks.append(options['account'])
             except Exception as e:
                 print("Twitter Bookmark Add error")
-                print(e)
+                self.server.printex(e)
             if 'source' in options: loc = 'http://{}/twitter?account={}'.format(host_address, options['source'])
             else: loc = 'http://{}'.format(host_address)
-            print('GOTO', loc)
             handler.answer(303, {'Location': loc})
             return True
         elif path.startswith('/twitterbookmark'):
@@ -232,25 +231,6 @@ class Twitter():
         html += '</body>'
         return html
 
-    def formatTweetText(self, text):
-        if len(text) > 0:
-            text = text.replace('\n', '<br>')
-            c = 0
-            while True:
-                tmp = text.find('#', c)
-                if tmp == -1: break
-                c = tmp
-                while True:
-                    tmp += 1
-                    if not text[tmp].isalnum() or tmp == len(text):
-                        break
-                if c < tmp:
-                    hashtag = text[c:tmp]
-                    replaced = '<a href="/twittersearch?query={}">{}</a>&nbsp;'.format(urllib.parse.quote(hashtag), hashtag)
-                    text = text[:c] + replaced + text[tmp:]
-                    c += len(replaced)
-        return text
-
     def statusToHTML(self, status):
         try:
             tweet = ""
@@ -265,7 +245,7 @@ class Twitter():
             if 'hashtags' in status.entities:
                 for h in reversed(status.entities['hashtags']):
                     text = text[:h['indices'][0]] + '<a href="/twittersearch?query=' + text[h['indices'][0]:h['indices'][1]] + '">' + text[h['indices'][0]:h['indices'][1]] + '</a>&nbsp;' +  text[h['indices'][1]:]
-            tweet += text
+            tweet += text.replace('\n', '<br>')
             try:
                 for i in range(len(status.extended_entities['media'])):
                     try:
@@ -293,8 +273,7 @@ class Twitter():
 
     def get_interface(self):
         html = '<form action="/twittersearch"><legend><b>Twitter Browser</b></legend><label for="query">Search </label><input type="text" id="query" name="query" value=""><br><input type="submit" value="Send"></form>'
-        if len(self.bookmarks) > 0:
-            html += '<a href="/twitterbookmark">Open Bookmarks</a><br>'
+        html += '<a href="/twitterbookmark">Open Bookmarks</a><br>'
         if self.notification is not None:
             html += "{}<br>".format(self.notification)
             self.notification = None

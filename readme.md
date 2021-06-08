@@ -5,7 +5,7 @@
 * Work in progress.  
 # Features  
 Flexible and simple plugin system. Currently support:  
-* Streamlink calls to receive Twitch streams on your Wii U (Twitch is currently broken on the Wii U Browser).  
+* Streamlink calls to receive Twitch streams on your Wii U (Twitch is currently broken on the Wii U/N3DS Browsers).  
 * Screenshot upload (for ease of use).  
 * 4chan Thread search (The search doesn't work anymore on the Wii U Browser).  
 * Twitter Browser (Twitter is now unusable on the Wii U/N3DS Browsers).  
@@ -71,7 +71,7 @@ Replace it with:
 Make sure to keep the indentation using spaces.  
   
 Pre-roll ads make the Wii U unable to load the playlist, another modification is required as a result:
-On Streamlink 2.0.0, go to:
+On Streamlink 2.0.0 and further, go to:
 `Streamlink/pkgs/streamlink/plugins`  
 Open `twitch.py` and search for the function  
 `def access_token(self, is_live, channel_or_vod):`  

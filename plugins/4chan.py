@@ -1,8 +1,6 @@
-from urllib.request import urlopen
-from urllib import request, parse
-import json
 from xml.sax import saxutils as su
 import re
+import requests
 
 class FourChan():
     def __init__(self, server):
@@ -30,9 +28,9 @@ class FourChan():
     def get4chan(self, board, search): # be sure to not abuse it, you are not supposed to call the api more than once per second
         try:
             url = 'http://a.4cdn.org/{}/catalog.json'.format(board) # board catalog url
-            req = request.Request(url)
-            url_handle = request.urlopen(req)
-            data = json.loads(url_handle.read())
+            rep = requests.get(url)
+            if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
+            data = rep.json()
             search = search.lower()
             threads = []
             for p in data:
@@ -64,7 +62,7 @@ class FourChan():
                 if self.search_results == "": self.search_results = "No results"
             except Exception as e:
                 print("Failed to retrieve 4chan threads")
-                print(e)
+                self.server.printex(e)
                 self.search_results = "Search failed"
 
             self.chan_board = options.get('board', self.chan_board)

@@ -25,13 +25,17 @@ class Streamlink():
         self.streamlink_kill()
 
     def streamlink_kill(self):
-        try:
-            self.streamlink.terminate()
-            self.streamlink.wait()
-            self.streamlink = None
+        if self.kill_process(self.streamlink):
             print("Stopped the streamlink instance")
+        self.streamlink = None
+
+    def kill_process(self, p):
+        try:
+            p.terminate()
+            p.wait()
+            return True
         except:
-            self.streamlink = None
+            return False
 
     def get_history(self):
         html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
@@ -69,10 +73,8 @@ class Streamlink():
             options = self.server.getOptions(path, 'twitch')
             try:
                 if 'stream' not in options: raise Exception()
-                if options.get('qual', '') == '720p': options['qual'] = '720p60' # force 60 fps, twitch removed 30
-                tmp = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('qual', '720p60')])
+                tmp = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('qual', '720p60')])# , stdout=subprocess.PIPE)
                 time.sleep(8)
-                print("Checking if stream is available...")
                 if tmp.poll() is None:
                     print("Stream started")
                     self.streamlink_kill()
@@ -84,17 +86,24 @@ class Streamlink():
                     self.add_to_history(options['stream'], options.get('qual', self.last_quality))
                     handler.answer(303, {'Location': self.streamlink_url})
                 else:
-                    try:
-                        tmp.terminate()
-                        tmp.wait()
-                    except:
-                        pass
+                    self.kill_process(tmp)
+                    tmp = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream'])], stdout=subprocess.PIPE)
+                    lines = tmp.stdout.read().decode('utf-8').split('\n')
+                    self.notification = ""
+                    for i in range(len(lines)):
+                        if lines[i].startswith('error: No playable streams found on this URL'):
+                            self.notification = "The Stream is offline"
+                            break
+                        elif lines[i].startswith('Available streams: '):
+                            self.notification = 'Available qualities:<br>' + lines[i][len('Available streams: '):]
+                            break
+                    if self.notification == "": self.notification = "Couldn't open the stream"
+                    self.kill_process(tmp)
                     raise Exception()
                 return True
             except Exception as e:
                 print("Stream not found")
-                print(e)
-                self.notification = "Stream not found"
+                self.server.printex(e)
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
                 return True
         elif path.startswith('/streamlinkhistory'):
@@ -107,7 +116,8 @@ class Streamlink():
                 html += "{}<br>".format(self.notification)
                 self.notification = None
             html += '</div>'
-            html += '<div class="elem">Open any url using Streamlink. Results might vary.<br><form action="/streamlinkcustom"><label for="url">Url </label><input type="text" id="url" name="url" value=""><br><label for="qual">Quality </label><input type="text" id="qual" name="qual" value="best"><br><label for="options">Options </label><input type="text" id="options" name="options" value=""><br><input type="submit" value="Start"></form>'
+            html += '<div class="elem"><form action="/twitch"><legend><b>Open a Twicth stream (manual quality input)</b></legend><label for="stream">Stream </label><input type="text" id="stream" name="stream" value="{}"><br><label for="qual">Quality </label><input type="text" id="qual" name="qual" value="{}"><br><input type="submit" value="Start"></form></div>'.format(self.last_stream, self.last_quality)
+            html += '<div class="elem"><form action="/streamlinkcustom"><legend><b>Open any url. Results might vary.</b></legend><label for="url">Url </label><input type="text" id="url" name="url" value=""><br><label for="qual">Quality </label><input type="text" id="qual" name="qual" value="best"><br><label for="options">Options </label><input type="text" id="options" name="options" value=""><br><input type="submit" value="Start"></form>'
             handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
             return True
         elif path.startswith('/streamlinkcustom?'):
@@ -143,7 +153,7 @@ class Streamlink():
                 return True
             except Exception as e:
                 print("Stream not found")
-                print(e)
+                self.server.printex(e)
                 self.notification = "Stream not found"
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
                 return True
@@ -159,7 +169,7 @@ class Streamlink():
         return False
 
     def get_interface(self):
-        html = '<form action="/twitch"><legend><b>Twitch</b></legend><label for="stream">Stream </label><input type="text" id="stream" name="stream" value="{}"><br><label for="qual">Quality </label><input type="text" id="qual" name="qual" value="{}"><br><input type="submit" value="Start"></form><a href="streamlinkhistory">History</a><br><a href="streamlinkadvanced">Advanced</a><br>'.format(self.last_stream, self.last_quality)
+        html = '<form action="/twitch"><legend><b>Twitch</b></legend><label for="stream">Stream </label><input type="text" id="stream" name="stream" value="{}"><br><label for="qual">Quality </label><select id="qual" name="qual"><option value="720p">720p (30 fps)</option><option value="720p60">720p (60 fps)</option><option value="480p">480p</option><option value="360p">N3DS</option><option value="best">Best</option><option value="worst">Worst</option><option value="audio_only">Audio Only</option></select><br><input type="submit" value="Start"></form><a href="streamlinkhistory">History</a><br><a href="streamlinkadvanced">Advanced</a><br>'.format(self.last_stream)
         if self.streamlink is not None:
             html += '<a href="{}">Watch {}</a><br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
         if self.notification is not None:

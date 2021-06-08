@@ -74,7 +74,7 @@ class N3DS():
             try: handler.answer(200, {'Content-type': 'text/html'}, self.get_media_list().encode('utf-8'))
             except Exception as e:
                 print("Failed to open video list")
-                print(e)
+                self.server.printex(e)
                 handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
         elif path.startswith('/3dsplay?'):
@@ -92,7 +92,7 @@ class N3DS():
                 handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
             except Exception as e:
                 print("Failed to open page")
-                print(e)
+                self.server.printex(e)
                 self.notification = "Failed to open page {}<br>{}".format(urllib.parse.unquote(options.get('file', '')), e)
                 handler.answer(303, {'Location':'http://{}/3dsvideolist'.format(host_address)})
             return True
@@ -120,7 +120,7 @@ class N3DS():
                     handler.answer((200 if (pos-range_start==self.current_size) else 206), {'Content-type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length':str(len(data)), 'Content-Range':content_range}, data)
             except Exception as e:
                 print("Failed to stream media")
-                print(e)
+                self.server.printex(e)
                 self.notification = "Failed to stream {}<br>{}".format(urllib.parse.unquote(options.get('file', '')), e)
                 handler.answer(303, {'Location':'http://{}/3dsvideolist'.format(host_address)})
             return True

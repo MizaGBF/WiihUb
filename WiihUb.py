@@ -3,6 +3,7 @@ import threading
 import logging
 import json
 import plugins
+import traceback
 
 class Handler(BaseHTTPRequestHandler):
     def check_client_address(self, address):
@@ -102,7 +103,8 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v3.2.3"
+        self.version = "v3.3.0"
+        print("Starting...\n")
         try:
             with open('config.json') as f:
                 self.data = json.load(f)
@@ -167,6 +169,9 @@ class WiihUb(ThreadingHTTPServer):
 
     def get_body(self):
         return '<meta charset="UTF-8"><title>WiihUb</title><body style="background-color: #252f33">'
+
+    def printex(self, exception):
+        print("".join(traceback.format_exception(type(exception), exception, exception.__traceback__)))
 
 if __name__ == '__main__':
     WiihUb().run()

@@ -1,371 +1,359 @@
-from urllib.request import urlopen
-from urllib import request
-import urllib.parse
-import json
-from bs4 import BeautifulSoup
-import concurrent.futures
+import requests
+from urllib.parse import quote, unquote
+import time
+from PIL import Image, ImageFont, ImageDraw
+from io import BytesIO
+import threading
 
 class Mangadex():
     def __init__(self, server):
         self.server = server
+        self.api = "https://api.mangadex.org"
         self.cookies = self.server.data.get("mangadex_cookie", {})
-        self.chapter_id = None
-        self.pages = []
-        self.hash = None
-        self.md_server = None
-        self.title = ""
+        self.lang_filter = self.server.data.get("mangadex_languages", ['en'])
         self.cache = {}
-        self.langs = {"1": "<b>English</b>", "6": "Italian", "7": "Russian", "8": "German", "10": "French", "16": "Portugese (Br)", "21": "Chinese", "26": "Turkish", "27": "Indonesian", "29": "Spanish (LATAM)", "32": "Thai"}
+        self.imgcache = {}
+        self.lock = threading.Lock()
         self.notification = None
-
-        self.know_tags = {k: v for k, v in sorted({1: '4-Koma', 2: 'Action', 3: 'Adventure', 4: 'Award Winning', 5: 'Comedy', 6: 'Cooking', 7: 'Doujinshi', 8: 'Drama', 9: 'Ecchi', 10: 'Fantasy', 11: 'Gyaru', 12: 'Harem', 13: 'Historical', 14: 'Horror', 16: 'Martial Arts', 17: 'Mecha', 18: 'Medical', 19: 'Music', 20: 'Mystery', 21: 'Oneshot', 22: 'Psychological', 23: 'Romance', 24: 'School Life', 25: 'Sci-Fi', 28: 'Shoujo Ai', 30: 'Shounen Ai', 31: 'Slice of Life', 32: 'Smut', 33: 'Sports', 34: 'Supernatural', 35: 'Tragedy', 36: 'Long Strip', 37: 'Yaoi', 38: 'Yuri', 40: 'Video Games', 41: 'Isekai', 42: 'Adaptation', 43: 'Anthology', 44: 'Web Comic', 45: 'Full Color', 46: 'User Created', 47: 'Official Colored', 48: 'Fan Colored', 49: 'Gore', 50: 'Sexual Violence', 51: 'Crime', 52: 'Magical Girls', 53: 'Philosophical', 54: 'Superhero', 55: 'Thriller', 56: 'Wuxia', 57: 'Aliens', 58: 'Animals', 59: 'Crossdressing', 60: 'Demons', 61: 'Delinquents', 62: 'Genderswap', 63: 'Ghosts', 64: 'Monster Girls', 65: 'Loli', 66: 'Magic', 67: 'Military', 68: 'Monsters', 69: 'Ninja', 70: 'Office Workers', 71: 'Police', 72: 'Post-Apocalyptic', 73: 'Reincarnation', 74: 'Reverse Harem', 75: 'Samurai', 76: 'Shota', 77: 'Survival', 78: 'Time Travel', 79: 'Vampires', 80: 'Traditional Games', 81: 'Virtual Reality', 82: 'Zombies', 83: 'Incest', 84: 'Mafia', 85: 'Villainess'}.items(), key=lambda item: item[1])}
-        
-        if len(self.cookies) == 0:
-            req = request.Request("https://mangadex.org", headers={"User-Agent": self.server.user_agent_common})
-            url_handle = request.urlopen(req)
-            self.updateCookie(url_handle.getheaders())
-            url_handle.close()
+        self.page_limit = 40
 
     def stop(self):
         self.server.data["mangadex_cookie"] = self.cookies
+        self.server.data["mangadex_bookmark"] = self.bookmarks
+        self.server.data["mangadex_languages"] = self.lang_filter
 
     def updateCookie(self, headers):
         res = {}
-        for t in headers:
-            if t[0] != 'Set-Cookie': continue
-            ck = t[1].split('; ')
-            for c in ck:
-                s = c.split('=')
-                if len(s) <= 1: continue
-                res[s[0]] = s[1]
+        ck = headers.get('Set-Cookie', '').split('; ')
+        for c in ck:
+            s = c.split('=', 1)
+            if s[0] in ['path', 'domain'] or len(s) != 2: continue
+            res[s[0]] = s[1]
         self.cookies = {**self.cookies, **res}
 
     def buildCookie(self, c):
         s = ""
         for k in c:
             s += k + "=" + c[k] + "; "
+        if len(s) > 0: s = s[:-2]
         return s
 
-    def urlToID(self, ch_url):
-        sch = ch_url.split('/')
-        id = None
-        for i in sch:
-            try:
-                id = int(i)
-                break
-            except:
-                pass
-        return id
+    def requestGet(self, url, headers={}, params={}):
+        headers["Cookie"] = self.buildCookie(self.cookies)
+        headers["user-Agent"] = self.server.user_agent_common
+        headers["Connection"] = "close"
+        rep = requests.get(url, headers=headers, params=params)
+        if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
+        self.updateCookie(rep.headers)
+        return rep
 
-    def loadImage(self, url, index):
-        err = 0
-        while err < 3:
-            try:
-                req = request.Request(url, headers={'User-Agent': self.server.user_agent_common})
-                url_handle = request.urlopen(req, timeout=10)
-                self.pages[index] = url_handle.read()
-                url_handle.close()
-                return True
-            except:
-                self.pages[index] = url
-                err += 1
-        return False
+    def requestGetStream(self, url, headers={}):
+        headers["Cookie"] = self.buildCookie(self.cookies)
+        headers["user-Agent"] = self.server.user_agent_common
+        headers["Connection"] = "close"
+        headers["referer"] = "https://mangadex.org/"
+        rep = requests.get(url, headers=headers, stream=True)
+        if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
+        self.updateCookie(rep.headers)
+        raw = rep.raw.read()
+        return raw
 
-    def loadChapter(self, id):
-        if id != self.chapter_id:
-            try:
-                req = request.Request("https://api.mangadex.org/v2/chapter/{}?saver=0&include=manga".format(id), headers={"User-Agent": self.server.user_agent_common, "Cookie": self.buildCookie(self.cookies)})
-                url_handle = request.urlopen(req)
-                self.updateCookie(url_handle.getheaders())
-                data = json.loads(url_handle.read())['data']['chapter']
-                url_handle.close()
-                self.md_server = data['server']
-                self.hash = data['hash']
-                self.pages = []
-                self.title = data['mangaTitle']
-                while len(self.pages) < len(data['pages']): self.pages.append(None)
-                if len(data['pages']) > 0:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=len(data['pages'])) as executor:
-                        ft = {executor.submit(self.loadImage, "{}{}/{}".format(self.md_server, self.hash, data['pages'][i]), i): i for i in range(0, len(data['pages']))}
-                        count = 0
-                        for f in concurrent.futures.as_completed(ft):
-                            if f: count += 1
-                self.chapter_id = id
-                return True
-            except Exception as e:
-                print(e)
-                return False
-        return True
+    def get_manga_cover(self, id):
+        time.sleep(1)
+        return self.requestGet(f"{self.api}/cover/{id}").json()
 
-    def requestMD(self, url, use_json=False):
-        req = request.Request(url, headers={"User-Agent": self.server.user_agent_common, "Cookie": self.buildCookie(self.cookies)})
-        url_handle = request.urlopen(req, timeout=10)
-        self.updateCookie(url_handle.getheaders())
-        if use_json: data = json.loads(url_handle.read())
-        else: data = url_handle.read()
-        url_handle.close()
-        return data
+    def get_manga_covers(self, offset, ids):
+        time.sleep(1)
+        return self.requestGet(f"{self.api}/cover", params={"offset":offset, "limit":100, "ids[]":ids}).json()
 
-    def getSeries(self, url):
-        sid = str(self.urlToID(url))
-        suffix = ""
-        nid = 1
-        if sid not in self.cache:
-            self.cache[sid] = {'thumbnail':None, 'title':None, 'tags':None, 'len':None, 'chapters':[]}
-        else:
-            self.cache[sid]['len'] = None
-            self.cache[sid]['chapters'] = []
-        while True:
-            soup = BeautifulSoup(self.requestMD(url + suffix), 'html.parser')
+    def get_manga_info(self, id):
+        time.sleep(1)
+        js = self.requestGet(f"{self.api}/manga/{id}").json()
+        if js['result'] == 'error': return None
+        if js['data']['id'] not in self.cache:
+            self.cache[js['data']['id']] = js['data']
+            self.cache[js['data']['id']]['chapter_list'] = None
+            self.cache[js['data']['id']]['cover'] = None
 
-            if self.cache[sid]['len'] is None:
-                li = soup.find_all('li', class_='list-inline-item')
-                for l in li:
-                    if len(l.findChildren("span", {'class':['far', 'fa-file', 'fa-fw'], 'title':'Total chapters'}, recursive=True)) > 0:
-                        try:
-                            self.cache[sid]['len'] = int(l.text)
-                        except:
-                            pass
-            
-            if self.cache[sid]['thumbnail'] is None:
-                try:
-                    div = soup.find_all("div", {'class':['card-body', 'p-0']})
-                    self.cache[sid]['thumbnail'] = self.requestMD(div[0].findChildren("img", class_="rounded", recursive=True)[0].attrs['src'])
-                except:
-                    pass
+            for r in js['relationships']:
+                if r['type'] == 'cover_art':
+                    covert_id = r['id']
+            self.cache[js['data']['id']]['cover'] = self.get_manga_cover(covert_id)['data']['attributes']['fileName']
+        return js
 
-            if self.cache[sid]['title'] is None:
-                try:
-                    h6 = soup.find_all("h6", class_='card-header')
-                    self.cache[sid]['title'] = h6[0].findChildren("span", class_="mx-1", recursive=True)[0].text
-                except:
-                    pass
+    def get_mangas(self, params={}):
+        params['limit'] = self.page_limit
+        params['order[updatedAt]'] = "desc"
+        time.sleep(0.5)
+        js = self.requestGet(f"{self.api}/manga", params=params).json()
+        if js.get('result', None) is not None:
+            return None
+        covers = []
+        for m in js['results']:
+            self.cache[m['data']['id']] = m['data']
+            self.cache[m['data']['id']]['chapter_list'] = None
+            self.cache[m['data']['id']]['cover'] = None
+            for r in m['relationships']:
+                if r['type'] == 'cover_art':
+                    covers.append(r['id'])
+                    break
+        if len(covers) > 0:
+            offset = 0
+            total = 1
+            while offset < total:
+                covers = self.get_manga_covers(offset, covers)
+                total = covers['total']
+                for c in covers['results']:
+                    for r in c['relationships']:
+                        if r['type'] == 'manga':
+                            self.cache[r['id']]['cover'] = c['data']['attributes']['fileName']
+                            break
+                offset += len(covers['results'])
 
-            if self.cache[sid]['tags'] is None:
-                self.cache[sid]['tags'] = []
-                a = soup.find_all("a", class_='badge')
-                for aa in a:
-                    if aa.attrs['href'].startswith('/genre/'):
-                        self.cache[sid]['tags'].append([aa.attrs['href'], aa.text])
-            
-            div = soup.find_all("div", {'class':['row', 'no-gutters']})
-            for d in div:
-                try:
-                    if str(d).find('data-chapter') != -1:
-                        ch = d.findChildren("div", class_="chapter-row", recursive=True)[0]
-                        chap = ch.attrs['data-chapter']
-                        vol = ch.attrs['data-volume']
-                        lang = ch.attrs['data-lang']
-                        id = ch.attrs['data-id']
-                        self.cache[sid]['chapters'].append([id, vol, chap, lang])
-                except:
-                    pass
-            
-            if self.cache[sid]['len'] is None or nid * 100 >= self.cache[sid]['len']:
-                break
-            nid += 1
-            suffix = "/chapters/{}/".format(nid)
-        return self.cache[sid]
+        return [m['data'] for m in js['results']], js['total']
 
-    def getCategory(self, url):
-        soup = BeautifulSoup(self.requestMD(url), 'html.parser')
-        a = soup.find_all("a", {'class':['ml-1', 'manga_title']})
-        l = []
-        for aa in a:
-            url = aa.attrs['href']
-            id = str(self.urlToID(url))
-            if id not in self.cache:
-                self.cache[id] = {'thumbnail':'https://mangadex.org/images/manga/{}.large.jpg'.format(self.urlToID(url)), 'title':None, 'tags':None, 'len':None, 'chapters':[]}
-            l.append([url, aa.text])
-        return l
+    def get_chapters(self, id):
+        if id not in self.cache:
+            self.get_manga_info(id)
+        if self.cache[id]['chapter_list'] is not None: return
+        self.cache[id]['chapter_list'] = []
+        offset = 0
+        total = 1
+        while offset < total:
+            time.sleep(1)
+            j = self.requestGet(f"{self.api}/manga/{id}/feed", params={"limit":500, "offset":offset}).json()
+            if j.get('result', None) is not None: raise Exception(f"Failed to retrieve chapters for series {id}")
+            for c in j['results']:
+                if self.lang_filter is None or len(self.lang_filter) == 0 or c['data']["attributes"]["translatedLanguage"] in self.lang_filter:
+                    issorted = False
+                    for i in range(0, len(self.cache[id]['chapter_list'])):
+                        if c['data']["attributes"]["volume"] is None:
+                            if self.cache[id]['chapter_list'][i]["attributes"]["volume"] is None:
+                                if float(c['data']["attributes"]["chapter"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["chapter"]):
+                                    self.cache[id]['chapter_list'].insert(i, c['data'])
+                                    issorted = True
+                                    break
+                            else:
+                                self.cache[id]['chapter_list'].insert(i, c['data'])
+                                issorted = True
+                                break
+                        else:
+                            if self.cache[id]['chapter_list'][i]["attributes"]["volume"] is not None:
+                                if float(c['data']["attributes"]["volume"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]):
+                                    self.cache[id]['chapter_list'].insert(i, c['data'])
+                                    issorted = True
+                                    break
+                                elif float(c['data']["attributes"]["volume"]) == float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]) and float(c['data']["attributes"]["chapter"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["chapter"]):
+                                    self.cache[id]['chapter_list'].insert(i, c['data'])
+                                    issorted = True
+                                    break
+                    if not issorted:
+                        self.cache[id]['chapter_list'].append(c['data'])
+            total = j['total']
+            offset += len(j['results'])
+
+    def get_pages(self, id, cid):
+        if id not in self.cache:
+            self.get_chapters(id)
+        next = None
+        for i in range(0, len(self.cache[id]['chapter_list'])):
+            if cid == self.cache[id]['chapter_list'][i]['id']:
+                return (None if (i >= len(self.cache[id]['chapter_list'])) else self.cache[id]['chapter_list'][i+1]), self.cache[id]['chapter_list'][i], next
+            next = self.cache[id]['chapter_list'][i]
+        return None, None, None
+
+    def get_tags(self):
+        time.sleep(1)
+        return self.requestGet(f"{self.api}/manga/tag").json()['baseUrl']
+
+    def compress(self, data):
+        with BytesIO(data) as file:
+            base = Image.open(file)
+            conv = base.convert('RGB')
+            base.close()
+            with BytesIO() as out:
+                conv.save(out, format='JPEG')
+                conv.close()
+                return out.getvalue()
 
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
-        if path.startswith('/mdgenres'):
-            html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style>'
-            html += '<div class="elem"><a href="/">Back</a></div>'
-            html += '<div class="elem">'
-            for id in self.know_tags:
-                html += '<a href="/md?url=https://mangadex.org/genre/{}">{}</a><br>'.format(id, self.know_tags[id])
-            html += '</div>'
-            html += '<div class="elem"><a href="/">Back</a></div>'
-            html += '</body>'
-            handler.answer(200, {'Content-type':'text/html'}, html.encode('utf-8'))
-        elif path.startswith('/md?'):
-            options = self.server.getOptions(path, 'md')
+        if path.startswith('/manga'): # cache cleanup
+            with self.lock:
+                if len(self.cache) > 400:
+                    keys = list(self.cache.keys())[200:]
+                    data = {}
+                    for key in keys:
+                        data[key] = self.cache[key]
+                    self.cache = data
+        if path.startswith('/manga?'):
+            options = self.server.getOptions(path, 'manga')
             try:
-                url = urllib.parse.unquote(options.get('url', 'https://mangadex.org/'))
-                l = self.getCategory(url)
+                query = unquote(options.get('query', '').replace('+', ' '))
+                tag = options.get('tag', '')
+                page = int(options.get('page', 0))
+                name = unquote(options.get('name', '').replace('+', ' '))
+                if name == '': name = query
+                if tag != '':
+                    mangas, total = self.get_mangas({'offset':page*self.page_limit, "includedTags[]":[tag]})
+                    app = f"&tag={tag}"
+                elif query != '':
+                    mangas, total = self.get_mangas({'offset':page*self.page_limit, "title":query})
+                    app = f"&query={quote(query).replace(' ', '+')}"
+                else:
+                    mangas, total = self.get_mangas({'offset':page*self.page_limit})
+                    app = ""
+                last = total // 20
+                pl = list(range(max(page-10, 0), min(page+16, last+1)))
                 html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 200px;display: inline-block;}</style>'
-                footer = '<div class="elem"><a href="/">Back</a><br><a href="/mdgenres">Genres</a>'
-                if url != 'https://mangadex.org/':
-                    if len(url.split('/')) > 5:
-                        purl = '/'.join(url.split('/')[:(-2 if url.endswith('/') else -1)])
-                        if purl.endswith('/'): purl += '{}'
-                        else: purl += '/{}'
-                        pid = int(url.split('/')[(-2 if url.endswith('/') else -1)]) - 1
-                    else:
-                        gid = self.urlToID(url)
-                        purl = url + '/{}/0/'.format(self.know_tags[int(gid)].lower()) + '{}'
-                        pid = 0
-                    footer += '<br><div style="font-size:30px">'
-                    for i in range(max(0, pid - 5), max(0, pid + 5)):
-                        if i < pid: footer += '<a href="/md?url={}">{}</a> # '.format(purl.format(i+1), i+1)
-                        elif i > pid: footer += ' # <a href="/md?url={}">{}</a>'.format(purl.format(i+1), i+1)
-                        else: footer += "<b>{}</b>".format(pid+1)
-                    footer += "</div>"
-                    
+
+                # footer
+                footer = '<div class="elem">'
+                footer += '<a href="/">Back</a><br>'
+                footer += f'<form action="/manga"><label for="query">Search </label><input type="text" id="query" name="query" value="{query}"><br><input type="submit" value="Send"></form><br>'
+                if name != '': footer += f'Searched <b>{name}</b><br>'
+                for p in pl:
+                    if p == page: footer += f"<b>{p+1}</b>"
+                    else: footer += f'<a href="/manga?page={p}{app}">{p+1}</a>'
+                    if p != pl[-1]: footer += ' # '
                 footer += '</div>'
+
                 html += footer
+
                 html += '<div class="elem">'
-                for m in l:
-                    html += '<div class="subelem"><a href="/mdseries?url=https://mangadex.org{}"><img style="max-height:300px;max-width:200px;height:auto;width:auto;" src="/mdthumb?id={}" /><br>{}</a></div>'.format(m[0], self.urlToID(m[0]), m[1])
-                if len(l) == 0:
-                    html += "No more mangas in this category"
+                for m in mangas:
+                    html += f'<div class="subelem"><a href="mangaseries?id={m["id"]}"><img style="max-height:300px;max-width:auto;height:270px;width:auto;" src="/mangaimg?url=https://uploads.mangadex.org/covers/{m["id"]}/{m["cover"]}" /><br>{m["attributes"]["title"]["en"]}</a></div>'
+                if len(mangas) == 0:
+                    html += "No mangas found"
                 html += '</div>'
                 html += footer
+                html += '</body>'
                 handler.answer(200, {'Content-type':'text/html'}, html.encode('utf-8'))
             except Exception as e:
                 print("Failed to open mangadex")
-                print(e)
+                self.server.printex(e)
                 self.notification = 'Failed to open <a href="{}">{}</a><br>{}'.format(options.get('url', ''), options.get('url', '')) # TODO
                 handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
-        elif path.startswith('/mdthumb?'):
-            options = self.server.getOptions(path, 'mdthumb')
+        elif path.startswith('/mangaseries?'):
+            options = self.server.getOptions(path, 'mangaseries')
             try:
                 id = options['id']
-                if isinstance(self.cache[id]['thumbnail'], str):
-                    self.cache[id]['thumbnail'] = self.requestMD(self.cache[id]['thumbnail'])
-                handler.answer(200, {}, self.cache[id]['thumbnail'])
-            except Exception as e:
-                print("Failed to open thumbnail")
-                print(e)
-                self.notification = 'Failed to open <a href="{}">{}</a><br>{}'.format(options.get('url', ''), options.get('url', '')) # TODO
-                handler.answer(303, {'Location':'http://{}'.format(host_address)})
-            return True
-        elif path.startswith('/mdseries?'):
-            options = self.server.getOptions(path, 'mdseries')
-            try:
-                url = urllib.parse.unquote(options['url'])
-                m = self.getSeries(url)
+                self.get_chapters(id)
+                m = self.cache[id]
                 html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style>'
-                footer = '<div class="elem"><a href="/md?">Back</a></div>'
+                footer = '<div class="elem"><a href="/manga?">Back</a>'
+                footer += '</div>'
                 
                 html += footer + '<div class="elem">'
-                if m['thumbnail'] is not None: html += '<img height="200" src="/mdthumb?id={}" align="left" />'.format(self.urlToID(url))
-                html += '<b>' + m['title'] + '</b><br>'
+                html += f'<img height="200" src="/mangaimg?url=https://uploads.mangadex.org/covers/{m["id"]}/{m["cover"]}" align="left" />'
+                html += f'<b>{m["attributes"]["title"]["en"]}</b><br>'
                 html += "tags:<br>"
-                for t in m['tags']:
-                    html += '<a href="/md?url=https://mangadex.org{}">{}</a>'.format(t[0], t[1])
-                    if t is not m['tags'][-1]: html += ", "
+                for t in m['attributes']['tags']:
+                    html += f'<a href="/manga?tag={t["id"]}&name={quote("Tag: " + t["attributes"]["name"]["en"]).replace(" ", "+")}">{t["attributes"]["name"]["en"]}</a>'
+                    if t is not m['attributes']['tags'][-1]: html += ", "
                 html += "</div>"
                 
                 html += '<div class="elem">'
-                for ch in m['chapters']:
-                    html += '<a href="/mdchapter?url={}&src={}">Vol.{} Chapter {}</a> ({})<br>'.format(ch[0], url, ch[1], ch[2], self.langs.get(ch[3], "Unknown Language {}".format(ch[3])))
+                for ch in m['chapter_list']:
+                    html += f'<a href="/mangachapter?id={id}&chapter={ch["id"]}">Vol.{ch["attributes"]["volume"]} Chapter {ch["attributes"]["chapter"]} {ch["attributes"]["title"]}</a> ({ch["attributes"]["translatedLanguage"]})<br>'
                 html += '</div>'
                 html += footer
                 handler.answer(200, {'Content-type':'text/html'}, html.encode('utf-8'))
             except Exception as e:
                 print("Failed to open manga")
-                print(e)
-                self.notification = 'Failed to open <a href="{}">{}</a><br>{}'.format(options.get('url', ''), options.get('url', '')) # TODO
+                self.server.printex(e)
+                self.notification = 'Failed to open series {}'.format(options.get('id', '')) # TODO
                 handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
-        elif path.startswith('/mdchapter?'):
-            options = self.server.getOptions(path, 'mdchapter')
+        elif path.startswith('/mangachapter?'):
+            options = self.server.getOptions(path, 'mangachapter')
             try:
-                id = self.urlToID(urllib.parse.unquote(options['url']))
-                if id is None or not self.loadChapter(id): raise Exception()
-                current = int(options.get('page', 0))
-                last = len(self.pages)-1
-                
+                id = options['id']
+                cid = options['chapter']
+                page = int(options.get('page', 0))
+                prev, ch, next = self.get_pages(id, cid)
+                last = len(ch["attributes"]['data'])-1
+                pl = list(range(max(page-5, 0), min(page+6, last+1)))
+                for px in range(0, 1 + last // 10):
+                    if px * 10 not in pl: pl.append(px*10)
+                if last not in pl: pl.append(last)
+                pl.sort()
                 html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;font-size: 180%;}</style><title>WiihUb</title><body style="background-color: #242424;">'
-                
-                if last >= 0:
-                    # pages
-                    pl = list(range(max(current-5, 0), min(current+6, last+1)))
-                    if 1 not in pl: pl = [1] + pl
-                    for px in range(0, 1 + last // 10):
-                        if px * 10 not in pl: pl = pl + [px*10]
-                    if last not in pl: pl = pl + [last]
-                    pl.sort()
-                    
-                    # prev/next chapter
-                    next = None
-                    prev = None
-                    try:
-                        srcid = str(self.urlToID(options['src']))
-                        m = self.cache[srcid]['chapters']
-                        state = 0
-                        print("searching")
-                        for ch in m:
-                            if state == 0 and ch[0] == str(id):
-                                state = 1
-                                lg = ch[3]
-                            elif state == 1 and ch[3] == lg:
-                                prev = ch[0]
-                                break
-                        state = 0
-                        for ch in reversed(m):
-                            if state == 0 and ch[0] == str(id): state = 1
-                            elif state == 1 and ch[3] == lg:
-                                next = ch[0]
-                                break
-                    except:
-                        pass
-                else:
-                    next = None
-                    prev = None
-                    pl = []
                 
                 # footer
                 footer = '<div class="elem">'
-                if 'src' not in options: back = '/'
-                else: back = '/mdseries?url={}'.format(options['src'])
-                if prev is not None: footer += '<a href="/mdchapter?url={}&src={}">Previous</a> # '.format(prev, options['src'])
-                footer += '<a href="{}">Back</a>'.format(back)
-                if next is not None: footer += ' # <a href="/mdchapter?url={}&src={}">Next</a>'.format(next, options['src'])
-                if self.title != "": footer += "<br><b>" + self.title + "</b>"
+                if prev is not None: footer += f'<a href="/mangachapter?id={id}&chapter={prev["id"]}">Previous</a> # '
+                footer += f'<a href="/mangaseries?id={id}">Back</a>'
+                if next is not None: footer += f' # <a href="/mangachapter?id={id}&chapter={next["id"]}">Next</a>'
+                if ch["attributes"]["title"] != "": footer += "<br><b>" + ch["attributes"]["title"] + "</b>"
                 footer += "<br>"
                 for p in pl:
-                    if p == current: footer += "<b>{}</b>".format(p+1)
-                    else: footer += '<a href="/mdchapter?url={}&page={}{}">{}</a>'.format(options['url'], p, ('&src={}'.format(options['src']) if 'src' in options else ''), p+1)
+                    if p == page: footer += f"<b>{p+1}</b>"
+                    else: footer += f'<a href="/mangachapter?id={id}&chapter={cid}&page={p}">{p+1}</a>'
                     if p != pl[-1]: footer += ' # '
                 footer += '</div>'
                 
                 # body
-                if last < 0:
-                    html += footer + '<div class="elem">Chapter unavailable</div>' + footer
-                elif current < last:
-                    html += footer + '<div><a href="/mdchapter?url={}&page={}{}"><img src="/mdimg?id={}"></a></div>'.format(options['url'], current+1, ('&src={}'.format(options['src']) if 'src' in options else ''), current) + footer + '</body>'
+                imgurl = f"https://uploads.mangadex.org/data/{ch['attributes']['hash']}/{ch['attributes']['data'][page]}"
+                if page < last:
+                    html += f'{footer}<div><a href="/mangachapter?id={id}&chapter={cid}&page={page+1}"><img src="/mangaimg?url={imgurl}"></a></div>{footer}</body>'
                 elif next is not None:
-                    html += footer + '<div><a href="/mdchapter?url={}&src={}"><img src="/mdimg?id={}"></a></div>'.format(next, options['src'], current) + footer + '</body>'
+                    html += f'{footer}<div><a href="/mangachapter?id={id}&chapter={next["id"]}"><img src="/mangaimg?url={imgurl}"></a></div>{footer}</body>'
                 else:
-                    html += footer + '<div><img src="/mdimg?id={}"></div>'.format(current) + footer + '</body>'
+                    html += f'{footer}<div><a href="/mangaseries?id={id}"><img src="/mangaimg?url={imgurl}"></a></div>{footer}</body>'
                 handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
                 return True
             except Exception as e:
                 print("Failed to open chapter")
-                print(e)
+                self.server.printex(e)
                 self.notification = 'Failed to open <a href="{}">{}</a><br>{}'.format(options.get('url', ''), options.get('url', ''))
                 handler.answer(303, {'Location':'http://{}'.format(host_address)})
             return True
-        elif path.startswith('/mdimg?'):
-            options = self.server.getOptions(path, 'mdimg')
+        elif path.startswith('/mangatags'):
             try:
-                img = self.pages[int(options['id'])]
-                if isinstance(img, str):
-                    if self.loadImage(img, int(options['id'])):
-                        img = self.pages[int(options['id'])]
-                    else:
-                        raise Exception('Loading failed')
-                handler.answer(200, {'Content-type': 'image/jpg'}, img)
+                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 200px;display: inline-block;}</style>'
+                html += '<div class="elem"><a href="/">Back</a><br></div>'
+                html += '<div class="elem">'
+                tags = self.get_tags()
+                for t in tags:
+                    html += f'<a href="/manga?tag={t["data"]["id"]}&name={quote("Tag: " + t["data"]["attributes"]["name"]["en"]).replace(" ", "+")}">{t["data"]["attributes"]["name"]["en"]}</a><br>'
+                html += '</div>'
+                html += '</body>'
+                handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
+                return True
             except Exception as e:
-                print("Can't access page", options.get('id', '?'))
-                print(e)
-                handler.answer(404)
+                print("Failed to open chapter")
+                self.server.printex(e)
+                self.notification = 'Failed to open <a href="{}">{}</a><br>{}'.format(options.get('url', ''), options.get('url', ''))
+                handler.answer(303, {'Location':'http://{}'.format(host_address)})
+            return True
+        elif path.startswith('/mangaimg?'):
+            options = self.server.getOptions(path, 'mangaimg')
+            try:
+                url = unquote(options['url'])
+                if url in self.imgcache:
+                    ext = url.split('.')[-1]
+                    raw = self.imgcache[url]
+                else:
+                    ext = url.split('.')[-1]
+                    time.sleep(0.2)
+                    raw = self.compress(self.requestGetStream(url))
+                    with self.lock:
+                        self.imgcache[url] = raw
+                        if len(self.imgcache) > 200:
+                            keys = list(self.imgcache.keys())[150:]
+                            imdata = {}
+                            for key in keys:
+                                imdata[key] = self.imgcache[key]
+                            self.imgcache = imdata
+                handler.answer(200, {'Content-type': 'image/jpg'}, self.imgcache[url])
+                return True
+            except Exception as e:
+                print("Failed to open image")
+                self.server.printex(e)
+                self.notification = 'Failed to open {}'.format(options.get('url', ''))
+                handler.answer(404, {})
             return True
         return False
 
@@ -373,7 +361,7 @@ class Mangadex():
         return False
         
     def get_interface(self):
-        html = '<b>Mangadex Browser</b><br><a href="/md?">Home</a><br><a href="/mdgenres">Genres</a>'
+        html = '<b>Mangadex Browser</b><br><a href="/manga?">Home</a><br><a href="/mangatags">Tags</a><br><form action="/manga"><label for="query">Search </label><input type="text" id="query" name="query" value=""><br><input type="submit" value="Send"></form><br>'
         if self.notification is not None:
             html += "{}<br>".format(self.notification)
             self.notification = None

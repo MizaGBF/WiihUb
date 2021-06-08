@@ -46,7 +46,7 @@ class Notepad():
                 self.notes.pop(int(options['id']))
             except Exception as e:
                 print("Failed to delete note")
-                print(e)
+                self.server.printex(e)
             handler.answer(303, {'Location':'http://{}/listnote'.format(host_address)})
             return True
         elif path.startswith('/editnote?'):
@@ -55,7 +55,7 @@ class Notepad():
                 handler.answer(200, {'Content-type': 'text/html'}, self.get_typing_ui(int(options['id'])).encode('utf-8'))
             except Exception as e:
                 print("Note not found")
-                print(e)
+                self.server.printex(e)
                 handler.answer(303, {'Location':'http://{}/listnote'.format(host_address)})
             return True
         elif path.startswith('/savenote?'):
@@ -66,7 +66,7 @@ class Notepad():
                 else: self.notes.append(urllib.parse.unquote(options['content'].replace('+', ' ')).replace('\r\n', '\n'))
             except Exception as e:
                 print("Failed to save note")
-                print(e)
+                self.server.printex(e)
             handler.answer(303, {'Location':'http://{}/listnote'.format(host_address)})
             return True
         return False
