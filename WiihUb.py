@@ -103,7 +103,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v3.3.1"
+        self.version = "v3.3.2"
         print("Starting...\n")
         try:
             with open('config.json') as f:

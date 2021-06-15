@@ -23,6 +23,7 @@ def load(parent): # load all plugins in the 'plugins' folder
                             parent.add_plugin(_class(parent)) # instantiate and add to the parent
                         except Exception as e:
                             print("Plugin Import Exception in file", p, ":", e)
+                            parent.printex(e)
             except:
                 pass
 

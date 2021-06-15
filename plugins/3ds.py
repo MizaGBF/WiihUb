@@ -2,6 +2,7 @@ from os import listdir, unlink, makedirs, path, remove
 from os.path import isfile, join, islink
 import urllib.parse
 import glob
+import threading
 
 # to encode a video to the right format using ffmpeg
 # bin\ffmpeg.exe -i input.whatever -filter:v "scale=-1:360:flags=lanczos" -c:v libx264 -c:a aac output.mp4
@@ -13,9 +14,8 @@ class N3DS():
         self.folder = self.server.data.get("3ds_folder", '')
         if self.folder == "": self.folder = "3ds"
         if self.folder[-1] == "/": self.folder = self.folder[:-1]
-        self.stream = None
-        self.current_file = ''
-        self.current_size = 0
+        self.cache = {}
+        self.lock = threading.Lock()
 
     def stop(self):
         self.server.data["3ds_folder"] = self.folder
@@ -57,16 +57,21 @@ class N3DS():
         return html
 
     def open(self, file):
-        if self.current_file == file: return
+        if file in self.cache: return self.cache[file]
         f = open(file, 'rb')
-        if self.stream is not None: self.stream.close()
-        self.stream = f
-        self.current_file = file
-        self.current_size = path.getsize(file)
+        with self.lock:
+            self.cache[file] = [f, path.getsize(file)]
+        return self.cache[file]
 
     def read(self, file, pos, chunksize=10485760):
-        self.stream.seek(pos)
-        return self.stream.read(chunksize), self.stream.tell()
+        self.cache[file][0].seek(pos)
+        return self.cache[file][0].read(chunksize), self.cache[file][0].tell()
+
+    def close_all(self):
+        with self.lock:
+            for f in self.cache:
+                self.cache[f].close()
+            self.cache = {}
 
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
@@ -99,7 +104,7 @@ class N3DS():
         elif path.startswith('/3dsstream?'):
             options = self.server.getOptions(path, '3dsstream')
             try:
-                self.open(urllib.parse.unquote(options['file']))
+                current_size = self.open(urllib.parse.unquote(options['file']))[1]
                 file_range = handler.headers.get('Range')
                 if file_range is None:
                     range_start = 0
@@ -108,16 +113,16 @@ class N3DS():
                     tmp = file_range.split('=')[-1].split('-')
                     range_start = int(tmp[0])
                     try: range_end = int(tmp[1]) + 1
-                    except: range_end = self.current_size
-                if (range_end is not None and range_end > self.current_size) or range_start >= self.current_size:
+                    except: range_end = current_size
+                if (range_end is not None and range_end > current_size) or range_start >= current_size:
                     handler.answer(416)
                 else:
                     if range_end is None:
                          data, pos = self.read(urllib.parse.unquote(options['file']), range_start)
                     else:
                         data, pos = self.read(urllib.parse.unquote(options['file']), range_start, range_end-range_start)
-                    content_range = 'bytes %s-%s/%s' % (range_start, pos-1, self.current_size)
-                    handler.answer((200 if (pos-range_start==self.current_size) else 206), {'Content-type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length':str(len(data)), 'Content-Range':content_range}, data)
+                    content_range = 'bytes %s-%s/%s' % (range_start, pos-1, current_size)
+                    handler.answer((200 if (pos-range_start==current_size) else 206), {'Content-type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length':str(len(data)), 'Content-Range':content_range}, data)
             except Exception as e:
                 print("Failed to stream media")
                 self.server.printex(e)

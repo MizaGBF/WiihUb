@@ -250,7 +250,7 @@ class Mangadex():
                 html += f'<b>{m["attributes"]["title"]["en"]}</b><br>'
                 html += "tags:<br>"
                 for t in m['attributes']['tags']:
-                    html += f'<a href="/manga?tag={t["id"]}&name={quote("Tag: " + t["attributes"]["name"]["en"]).replace(" ", "+")}">{t["attributes"]["name"]["en"]}</a>'
+                    html += '<a href="/manga?tag={}&name={}">{}</a>'.format(t["id"], quote(t["attributes"]["name"]["en"]).replace(" ", "+"), t["attributes"]["name"]["en"])
                     if t is not m['attributes']['tags'][-1]: html += ", "
                 html += "</div>"
                 
@@ -259,6 +259,7 @@ class Mangadex():
                     html += f'<a href="/mangachapter?id={id}&chapter={ch["id"]}">Vol.{ch["attributes"]["volume"]} Chapter {ch["attributes"]["chapter"]} {ch["attributes"]["title"]}</a> ({ch["attributes"]["translatedLanguage"]})<br>'
                 html += '</div>'
                 html += footer
+                html += '</body>'
                 handler.answer(200, {'Content-type':'text/html'}, html.encode('utf-8'))
             except Exception as e:
                 print("Failed to open manga")
@@ -317,7 +318,7 @@ class Mangadex():
                 html += '<div class="elem">'
                 tags = self.get_tags()
                 for t in tags:
-                    html += f'<a href="/manga?tag={t["data"]["id"]}&name={quote("Tag: " + t["data"]["attributes"]["name"]["en"]).replace(" ", "+")}">{t["data"]["attributes"]["name"]["en"]}</a><br>'
+                    html += '<a href="/manga?tag={}&name={}">{}</a><br>'.format(t["data"]["id"], quote(t["data"]["attributes"]["name"]["en"]).replace(" ", "+"), t["data"]["attributes"]["name"]["en"])
                 html += '</div>'
                 html += '</body>'
                 handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
@@ -360,7 +361,7 @@ class Mangadex():
         return False
         
     def get_interface(self):
-        html = '<b>Mangadex Browser</b><br><a href="/manga?">Home</a><br><a href="/mangatags">Tags</a><br><form action="/manga"><label for="query">Search </label><input type="text" id="query" name="query" value=""><br><input type="submit" value="Send"></form><br>'
+        html = '<b>Mangadex Browser</b><br><form action="/manga"><label for="query">Search </label><input type="text" id="query" name="query" value=""><br><input type="submit" value="Send"></form><a href="/manga?">Home</a><br><a href="/mangatags">Tags</a>'
         if self.notification is not None:
             html += "{}<br>".format(self.notification)
             self.notification = None

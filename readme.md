@@ -15,6 +15,7 @@ Flexible and simple plugin system. Currently support:
 * VLC Streaming (to watch videos from your PC using VLC to transcode to the proper format) (Wii U Only).  
 * Video Streaming for the 3DS (Video must be encoded to the right format, see below).  
 * Notepad, to take notes.  
+* Xenoblade X Companion (Allow you to search XCX-related items, etc...).  
 `pip install -r requirements.txt` to install all the modules. 
 # Note  
 * To disable a plugin, just remove the corresponding file from the `plugins` folder.  
