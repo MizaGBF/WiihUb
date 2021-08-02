@@ -256,7 +256,11 @@ class Mangadex():
                 
                 html += '<div class="elem">'
                 for ch in m['chapter_list']:
-                    html += f'<a href="/mangachapter?id={id}&chapter={ch["id"]}">Vol.{ch["attributes"]["volume"]} Chapter {ch["attributes"]["chapter"]} {ch["attributes"]["title"]}</a> ({ch["attributes"]["translatedLanguage"]})<br>'
+                    html += f'<a href="/mangachapter?id={id}&chapter={ch["id"]}">'
+                    if ch["attributes"]["volume"] is not None: html += f'Vol.{ch["attributes"]["volume"]} '
+                    if ch["attributes"]["chapter"] is not None: html += f'Chapter {ch["attributes"]["chapter"]} '
+                    if ch["attributes"]["title"] is not None: html += f'{ch["attributes"]["title"]} '
+                    html += f'({ch["attributes"]["translatedLanguage"]})<br>'
                 html += '</div>'
                 html += footer
                 html += '</body>'
@@ -287,7 +291,7 @@ class Mangadex():
                 if prev is not None: footer += f'<a href="/mangachapter?id={id}&chapter={prev["id"]}">Previous</a> # '
                 footer += f'<a href="/mangaseries?id={id}">Back</a>'
                 if next is not None: footer += f' # <a href="/mangachapter?id={id}&chapter={next["id"]}">Next</a>'
-                if ch["attributes"]["title"] != "": footer += "<br><b>" + ch["attributes"]["title"] + "</b>"
+                if ch["attributes"]["title"] != "" and ch["attributes"]["title"] is not None: footer += "<br><b>" + ch["attributes"]["title"] + "</b>"
                 footer += "<br>"
                 for p in pl:
                     if p == page: footer += f"<b>{p+1}</b>"

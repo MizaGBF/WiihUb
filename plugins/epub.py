@@ -86,7 +86,7 @@ class Epub():
                 else:
                     ds = False
                 content, chapter, last_chapter = self.get_book_chapter(urllib.parse.unquote(options['file']), int(options.get('chapter', 0)))
-                html = '<meta charset="UTF-8"><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;font-size: 180%;} .epub_content {color: #c7c7c7;font-size: 150%;}</style><title>WiihUb</title><body style="background-color: #242424;margin: 5px 20px;font-size: ' + str(200 if ds else 100) + '%">'
+                html = '<head><meta charset="UTF-8"></head><style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;font-size: 180%;} .epub_content {color: #c7c7c7;font-size: 150%}</style><title>WiihUb</title><body style="background-color: #242424;margin: 5px 20px;font-size: ' + str(200 if ds else 100) + '%">'
                 footer = '<div class="elem">'
                 if chapter > 0: footer += '<a href="/book?file={}&chapter={}">Previous</a> # '.format(options['file'], chapter-1)
                 footer += '<a href="/booklist">Back</a>'

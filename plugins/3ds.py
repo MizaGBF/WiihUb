@@ -70,13 +70,15 @@ class N3DS():
     def close_all(self):
         with self.lock:
             for f in self.cache:
-                self.cache[f].close()
+                self.cache[f][0].close()
             self.cache = {}
 
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
         if path.startswith('/3dsvideolist'):
-            try: handler.answer(200, {'Content-type': 'text/html'}, self.get_media_list().encode('utf-8'))
+            try: 
+                self.close_all()
+                handler.answer(200, {'Content-type': 'text/html'}, self.get_media_list().encode('utf-8'))
             except Exception as e:
                 print("Failed to open video list")
                 self.server.printex(e)
