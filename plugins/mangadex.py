@@ -222,7 +222,7 @@ class Mangadex():
 
                 html += '<div class="elem">'
                 for m in mangas:
-                    html += f'<div class="subelem"><a href="mangaseries?id={m["id"]}"><img style="max-height:300px;max-width:auto;height:auto;width:200px;" src="/mangaimg?url=https://uploads.mangadex.org/covers/{m["id"]}/{m["cover"]}" /><br>{m["attributes"]["title"]["en"]}</a></div>'
+                    html += f'<div class="subelem"><a href="mangaseries?id={m["id"]}"><img style="max-height:300px;max-width:auto;height:auto;width:200px;" src="/mangaimg?url=https://uploads.mangadex.org/covers/{m["id"]}/{m["cover"]}" /><br>{m["attributes"]["title"].get("en", "")}</a></div>'
                 if len(mangas) == 0:
                     html += "No mangas found"
                 html += '</div>'

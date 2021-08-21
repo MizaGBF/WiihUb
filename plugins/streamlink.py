@@ -15,6 +15,7 @@ class Streamlink():
         self.streamlink_url = None
         self.streamlink_current  = None
         self.notification = None
+        self.quals = {"720p": "720p (30 fps)", "720p60": "720p (60 fps)", "480p": "480p", "360p": "N3DS", "best": "Best", "worst": "Worst", "audio_only":"Audio Only"}
 
     def stop(self):
         self.server.data["streamlink_stream"] = self.last_stream
@@ -169,7 +170,14 @@ class Streamlink():
         return False
 
     def get_interface(self):
-        html = '<form action="/twitch"><legend><b>Twitch</b></legend><label for="stream">Stream </label><input type="text" id="stream" name="stream" value="{}"><br><label for="qual">Quality </label><select id="qual" name="qual"><option value="720p">720p (30 fps)</option><option value="720p60">720p (60 fps)</option><option value="480p">480p</option><option value="360p">N3DS</option><option value="best">Best</option><option value="worst">Worst</option><option value="audio_only">Audio Only</option></select><br><input type="submit" value="Start"></form><a href="streamlinkhistory">History</a><br><a href="streamlinkadvanced">Advanced</a><br>'.format(self.last_stream)
+        html = '<form action="/twitch"><legend><b>Twitch</b></legend><label for="stream">Stream </label><input type="text" id="stream" name="stream" value="{}"><br><label for="qual">Quality </label><select id="qual" name="qual">'.format(self.last_stream)
+        for q in self.quals:
+            html += f'<option value="{q}"'
+            if q == self.last_quality: html += ' selected="selected"'
+            html += f'>{self.quals[q]}</option>'
+        if self.last_quality not in self.quals:
+            f'<option value="{self.last_quality}" selected="selected">Last used: {self.last_quality}</option>'
+        html += '</select><br><input type="submit" value="Start"></form><a href="streamlinkhistory">History</a><br><a href="streamlinkadvanced">Advanced</a><br>'
         if self.streamlink is not None:
             html += '<a href="{}">Watch {}</a><br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
         if self.notification is not None:
