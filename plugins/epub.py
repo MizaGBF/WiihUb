@@ -4,6 +4,8 @@ from os import listdir, unlink, makedirs, path
 from os.path import isfile, join, islink
 import urllib.parse
 import re
+from PIL import Image, ImageFont, ImageDraw
+from io import BytesIO
 
 class Epub():
     def __init__(self, server):
@@ -23,7 +25,23 @@ class Epub():
         self.server.data["epub_folder"] = self.folder
         self.server.data["epub_bookmarks"] = self.bookmarks
 
-    def get_book_chapter(self, book, chapter): # TEST get_pages
+    def img_convert(self, data):
+        with BytesIO(data) as file:
+            base = Image.open(file)
+            width, height = base.size
+            if width > 720:
+                im = base.resize((720, int(height * 720 / width)))
+                conv = im.convert('RGB')
+                im.close()
+            else:
+                conv = base.convert('RGB')
+            base.close()
+            with BytesIO() as out:
+                conv.save(out, format='JPEG')
+                conv.close()
+                return out.getvalue()
+
+    def get_book_chapter(self, book, chapter):
         if book != self.book_path:
             self.book = epub.read_epub(self.folder + '/' + book)
             if self.book is None: return None
@@ -36,9 +54,9 @@ class Epub():
                 if i.get_type() == ebooklib.ITEM_DOCUMENT:
                     self.chapters.append(i)
             for i in self.book.get_items_of_type(ebooklib.ITEM_IMAGE):
-                self.img_cache[i.get_name().split('/')[-1]] = i.get_content()
+                self.img_cache[i.get_name().split('/')[-1]] = self.img_convert(i.get_content())
             for i in self.book.get_items_of_type(ebooklib.ITEM_COVER):
-                self.img_cache[i.get_name().split('/')[-1]] = i.get_content()
+                self.img_cache[i.get_name().split('/')[-1]] = self.img_convert(i.get_content())
             
         if chapter > len(self.chapters):
             chapter = 0
@@ -105,7 +123,7 @@ class Epub():
         elif path.startswith('/bookimage?'):
             options = self.server.getOptions(path, 'bookimage')
             try:
-                handler.answer(200, {'Content-type':'image/{}'.format(options['file'].split('.')[-1])}, self.img_cache[urllib.parse.unquote(options['file'])])
+                handler.answer(200, {'Content-type':'image/jpg', self.img_cache[urllib.parse.unquote(options['file'])])
             except Exception as e:
                 print("Image not found in cache")
                 self.server.printex(e)
