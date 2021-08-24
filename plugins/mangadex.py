@@ -166,10 +166,20 @@ class Mangadex():
         time.sleep(1)
         return self.requestGet(f"{self.api}/manga/tag").json()
 
-    def compress(self, data):
+    def compress(self, data, maxwidth=None, maxheight=None):
         with BytesIO(data) as file:
             base = Image.open(file)
-            conv = base.convert('RGB')
+            width, height = base.size
+            if maxwidth is not None and width > maxwidth:
+                im = base.resize((maxwidth, int(height * maxwidth / width)))
+                conv = im.convert('RGB')
+                im.close()
+            elif maxheight is not None and height > maxheight:
+                im = base.resize((int(width * maxheight / height), maxheight))
+                conv = im.convert('RGB')
+                im.close()
+            else:
+                conv = base.convert('RGB')
             base.close()
             with BytesIO() as out:
                 conv.save(out, format='JPEG')
@@ -222,7 +232,7 @@ class Mangadex():
 
                 html += '<div class="elem">'
                 for m in mangas:
-                    html += f'<div class="subelem"><a href="mangaseries?id={m["id"]}"><img style="max-height:300px;max-width:auto;height:auto;width:200px;" src="/mangaimg?url=https://uploads.mangadex.org/covers/{m["id"]}/{m["cover"]}" /><br>{m["attributes"]["title"].get("en", "")}</a></div>'
+                    html += f'<div class="subelem"><a href="mangaseries?id={m["id"]}"><img style="max-height:300px;max-width:auto;height:auto;width:200px;" src="/mangaimg?height=300&url=https://uploads.mangadex.org/covers/{m["id"]}/{m["cover"]}" /><br>{m["attributes"]["title"].get("en", m["attributes"]["title"][list(m["attributes"]["title"].keys())[0]])}</a></div>'
                 if len(mangas) == 0:
                     html += "No mangas found"
                 html += '</div>'
@@ -246,12 +256,15 @@ class Mangadex():
                 footer += '</div>'
                 
                 html += footer + '<div class="elem">'
-                html += f'<img height="200" src="/mangaimg?url=https://uploads.mangadex.org/covers/{m["id"]}/{m["cover"]}" align="left" />'
-                html += f'<b>{m["attributes"]["title"]["en"]}</b><br>'
-                html += "tags:<br>"
+                html += f'<img height="200" src="/mangaimg?height=300&url=https://uploads.mangadex.org/covers/{m["id"]}/{m["cover"]}" align="left" />'
+                html += f'<b>{m["attributes"]["title"].get("en", m["attributes"]["title"][list(m["attributes"]["title"].keys())[0]])}</b><br>'
+                html += "<u>Tags:</u><br>"
                 for t in m['attributes']['tags']:
                     html += '<a href="/manga?tag={}&name={}">{}</a>'.format(t["id"], quote(t["attributes"]["name"]["en"]).replace(" ", "+"), t["attributes"]["name"]["en"])
                     if t is not m['attributes']['tags'][-1]: html += ", "
+                html += "<br><br><u>Description:</u><br>"
+                try: html += f"{m['attributes']['description']['en']}".replace('\n', '<br>').replace('\r', '').replace('[b]', '<b>').replace('[i]', '<i>').replace('[u]', '<u>').replace('[s]', '<strike>').replace('[/b]', '</b>').replace('[/i]', '</i>').replace('[/u]', '</u>').replace('[/s]', '</strike>').replace('[img]', '<img src="').replace('[/img]', '">').replace('[Spoiler]', '<details><summary>Spoiler</summary>').replace('[/Spoiler]', '</details>').replace('[spoiler]', '<details><summary>Spoiler</summary>').replace('[/spoiler]', '</details>').replace('[url=', '<a href="').replace('[/url]', '</a>').replace('[', '<').replace(']', '">').replace('https://twitter.com/', '/twitter?account=')
+                except: pass
                 html += "</div>"
                 
                 html += '<div class="elem">'
@@ -259,6 +272,7 @@ class Mangadex():
                     html += f'<a href="/mangachapter?id={id}&chapter={ch["id"]}">'
                     if ch["attributes"]["volume"] is not None: html += f'Vol.{ch["attributes"]["volume"]} '
                     if ch["attributes"]["chapter"] is not None: html += f'Chapter {ch["attributes"]["chapter"]} '
+                    else: html += 'Chapter ?? '
                     if ch["attributes"]["title"] is not None: html += f'{ch["attributes"]["title"]} '
                     html += f'({ch["attributes"]["translatedLanguage"]})<br>'
                 html += '</div>'
@@ -321,8 +335,11 @@ class Mangadex():
                 html += '<div class="elem"><a href="/">Back</a><br></div>'
                 html += '<div class="elem">'
                 tags = self.get_tags()
+                sorted_tags = {}
                 for t in tags:
-                    html += '<a href="/manga?tag={}&name={}">{}</a><br>'.format(t["data"]["id"], quote(t["data"]["attributes"]["name"]["en"]).replace(" ", "+"), t["data"]["attributes"]["name"]["en"])
+                    sorted_tags[t["data"]["attributes"]["name"]["en"]] = t["data"]["id"]
+                for k in sorted(sorted_tags.keys()):
+                    html += '<a href="/manga?tag={}&name={}">{}</a><br>'.format(sorted_tags[k], quote(k).replace(" ", "+"), k)
                 html += '</div>'
                 html += '</body>'
                 handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
@@ -341,9 +358,13 @@ class Mangadex():
                     ext = url.split('.')[-1]
                     raw = self.imgcache[url]
                 else:
+                    width = options.get('width', 720)
+                    if width is not None: width = int(width)
+                    height = options.get('height', None)
+                    if height is not None: height = int(height)
                     ext = url.split('.')[-1]
                     time.sleep(0.2)
-                    raw = self.compress(self.requestGetStream(url))
+                    raw = self.compress(self.requestGetStream(url), width, height)
                     with self.lock:
                         self.imgcache[url] = raw
                         if len(self.imgcache) > 200:
