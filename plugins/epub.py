@@ -123,7 +123,7 @@ class Epub():
         elif path.startswith('/bookimage?'):
             options = self.server.getOptions(path, 'bookimage')
             try:
-                handler.answer(200, {'Content-type':'image/jpg', self.img_cache[urllib.parse.unquote(options['file'])])
+                handler.answer(200, {'Content-type':'image/jpg'}, self.img_cache[urllib.parse.unquote(options['file'])])
             except Exception as e:
                 print("Image not found in cache")
                 self.server.printex(e)
