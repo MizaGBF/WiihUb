@@ -78,7 +78,9 @@ Open `twitch.py` and search for the function
 `def access_token(self, is_live, channel_or_vod):`  
 A bit lower, you'll find:
 `"playerType": "embed"`
-Replace `embed` by `frontpage` and you are done.
+Replace `embed` by `frontpage` and you are done.  
+If you are still getting pre-roll ads, wait a few minutes before trying again.  
+Alternatively, you can try `frontpage` or even keep the default, `embed`.  
 # 3DS Video Encoding  
 I use [FFmpeg](https://ffmpeg.org/download.html) to encode my videos to the right format for the New 3DS.  
 A simple example with a command line would be:

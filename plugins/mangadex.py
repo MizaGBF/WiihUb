@@ -60,22 +60,31 @@ class Mangadex():
 
     def get_manga_cover(self, id):
         time.sleep(1)
-        return self.requestGet(f"{self.api}/cover/{id}").json()
+        js = self.requestGet(f"{self.api}/cover/{id}").json()
+        check = js.get('result', None)
+        if check is None or check != 'ok':
+            return None
+        return js
 
     def get_manga_covers(self, offset, ids):
         time.sleep(1)
-        return self.requestGet(f"{self.api}/cover", params={"offset":offset, "limit":100, "ids[]":ids}).json()
+        js = self.requestGet(f"{self.api}/cover", params={"offset":offset, "limit":100, "ids[]":ids}).json()
+        check = js.get('result', None)
+        if check is None or check != 'ok':
+            return None
+        return js
 
     def get_manga_info(self, id):
         time.sleep(1)
         js = self.requestGet(f"{self.api}/manga/{id}").json()
-        if js['result'] == 'error': return None
+        check = js.get('result', None)
+        if check is None or check != 'ok':
+            return None
         if js['data']['id'] not in self.cache:
             self.cache[js['data']['id']] = js['data']
             self.cache[js['data']['id']]['chapter_list'] = None
             self.cache[js['data']['id']]['cover'] = None
-
-            for r in js['relationships']:
+            for r in js['data']['relationships']:
                 if r['type'] == 'cover_art':
                     covert_id = r['id']
             self.cache[js['data']['id']]['cover'] = self.get_manga_cover(covert_id)['data']['attributes']['fileName']
@@ -86,13 +95,14 @@ class Mangadex():
         params['order[updatedAt]'] = "desc"
         time.sleep(0.5)
         js = self.requestGet(f"{self.api}/manga", params=params).json()
-        if js.get('result', None) is not None:
+        check = js.get('result', None)
+        if check is None or check != 'ok':
             return None
         covers = []
-        for m in js['results']:
-            self.cache[m['data']['id']] = m['data']
-            self.cache[m['data']['id']]['chapter_list'] = None
-            self.cache[m['data']['id']]['cover'] = None
+        for m in js['data']:
+            self.cache[m['id']] = m
+            self.cache[m['id']]['chapter_list'] = None
+            self.cache[m['id']]['cover'] = None
             for r in m['relationships']:
                 if r['type'] == 'cover_art':
                     covers.append(r['id'])
@@ -103,14 +113,14 @@ class Mangadex():
             while offset < total:
                 covers = self.get_manga_covers(offset, covers)
                 total = covers['total']
-                for c in covers['results']:
+                for c in covers['data']:
                     for r in c['relationships']:
                         if r['type'] == 'manga':
-                            self.cache[r['id']]['cover'] = c['data']['attributes']['fileName']
+                            self.cache[r['id']]['cover'] = c['attributes']['fileName']
                             break
-                offset += len(covers['results'])
+                offset += len(covers['data'])
 
-        return [m['data'] for m in js['results']], js['total']
+        return [m for m in js['data']], js['total']
 
     def get_chapters(self, id):
         if id not in self.cache:
@@ -122,35 +132,37 @@ class Mangadex():
         while offset < total:
             time.sleep(1)
             j = self.requestGet(f"{self.api}/manga/{id}/feed", params={"limit":500, "offset":offset}).json()
-            if j.get('result', None) is not None: raise Exception(f"Failed to retrieve chapters for series {id}")
-            for c in j['results']:
-                if self.lang_filter is None or len(self.lang_filter) == 0 or c['data']["attributes"]["translatedLanguage"] in self.lang_filter:
+            check = j.get('result', None)
+            if check is None or check != 'ok': raise Exception(f"Failed to retrieve chapters for series {id}")
+            for c in j['data']:
+                if self.lang_filter is None or len(self.lang_filter) == 0 or c["attributes"]["translatedLanguage"] in self.lang_filter:
+                    if c['attributes']['externalUrl'] is not None: continue
                     issorted = False
                     for i in range(0, len(self.cache[id]['chapter_list'])):
-                        if c['data']["attributes"]["volume"] is None:
+                        if c["attributes"]["volume"] is None:
                             if self.cache[id]['chapter_list'][i]["attributes"]["volume"] is None:
-                                if float(c['data']["attributes"]["chapter"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["chapter"]):
-                                    self.cache[id]['chapter_list'].insert(i, c['data'])
+                                if float(c["attributes"]["chapter"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["chapter"]):
+                                    self.cache[id]['chapter_list'].insert(i, c)
                                     issorted = True
                                     break
                             else:
-                                self.cache[id]['chapter_list'].insert(i, c['data'])
+                                self.cache[id]['chapter_list'].insert(i, c)
                                 issorted = True
                                 break
                         else:
                             if self.cache[id]['chapter_list'][i]["attributes"]["volume"] is not None:
-                                if float(c['data']["attributes"]["volume"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]):
-                                    self.cache[id]['chapter_list'].insert(i, c['data'])
+                                if float(c["attributes"]["volume"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]):
+                                    self.cache[id]['chapter_list'].insert(i, c)
                                     issorted = True
                                     break
-                                elif float(c['data']["attributes"]["volume"]) == float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]) and float(c['data']["attributes"]["chapter"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["chapter"]):
-                                    self.cache[id]['chapter_list'].insert(i, c['data'])
+                                elif float(c["attributes"]["volume"]) == float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]) and float(c["attributes"]["chapter"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["chapter"]):
+                                    self.cache[id]['chapter_list'].insert(i, c)
                                     issorted = True
                                     break
                     if not issorted:
-                        self.cache[id]['chapter_list'].append(c['data'])
+                        self.cache[id]['chapter_list'].append(c)
             total = j['total']
-            offset += len(j['results'])
+            offset += len(j['data'])
 
     def get_pages(self, id, cid):
         if id not in self.cache:
@@ -164,7 +176,11 @@ class Mangadex():
 
     def get_tags(self):
         time.sleep(1)
-        return self.requestGet(f"{self.api}/manga/tag").json()
+        js = self.requestGet(f"{self.api}/manga/tag").json()
+        check = js.get('result', None)
+        if check is None or check != 'ok':
+            return None
+        return js
 
     def compress(self, data, maxwidth=None, maxheight=None):
         with BytesIO(data) as file:
@@ -336,8 +352,8 @@ class Mangadex():
                 html += '<div class="elem">'
                 tags = self.get_tags()
                 sorted_tags = {}
-                for t in tags:
-                    sorted_tags[t["data"]["attributes"]["name"]["en"]] = t["data"]["id"]
+                for t in tags['data']:
+                    sorted_tags[t["attributes"]["name"]["en"]] = t["id"]
                 for k in sorted(sorted_tags.keys()):
                     html += '<a href="/manga?tag={}&name={}">{}</a><br>'.format(sorted_tags[k], quote(k).replace(" ", "+"), k)
                 html += '</div>'
@@ -358,7 +374,7 @@ class Mangadex():
                     ext = url.split('.')[-1]
                     raw = self.imgcache[url]
                 else:
-                    width = options.get('width', 720)
+                    width = options.get('width', 800)
                     if width is not None: width = int(width)
                     height = options.get('height', None)
                     if height is not None: height = int(height)
@@ -388,7 +404,7 @@ class Mangadex():
     def get_interface(self):
         html = '<b>Mangadex Browser</b><br><form action="/manga"><label for="query">Search </label><input type="text" id="query" name="query" value=""><br><input type="submit" value="Send"></form><a href="/manga?">Home</a><br><a href="/mangatags">Tags</a>'
         if self.notification is not None:
-            html += "{}<br>".format(self.notification)
+            html += "<br>{}".format(self.notification)
             self.notification = None
         return html
 

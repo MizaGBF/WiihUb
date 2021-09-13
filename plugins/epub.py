@@ -29,8 +29,8 @@ class Epub():
         with BytesIO(data) as file:
             base = Image.open(file)
             width, height = base.size
-            if width > 720:
-                im = base.resize((720, int(height * 720 / width)))
+            if width > 900:
+                im = base.resize((900, int(height * 900 / width)))
                 conv = im.convert('RGB')
                 im.close()
             else:

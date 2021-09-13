@@ -103,10 +103,10 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v3.3.6"
+        self.version = "v3.3.7"
         print("Starting...\n")
         try:
-            with open('config.json') as f:
+            with open('config.json', 'rb') as f:
                 self.data = json.load(f)
         except Exception as e:
             print("Failed to load config.json")
