@@ -88,6 +88,7 @@ With the new Twitter API V2, it's now more complicated to use Twitter.
 3. On the dev portal, create a new project and then an application under it.  
 4. Get and copy the **Bearer Token**.  
 5. Either place the token in config.json with the key `twitter_bearer_token` if you know what you are doing OR start WiihUb and click `Set Twitter Key` under `Twitter`, then paste the token and send it.  
+  
 Sadly, the Twitter API V2 limits you to 500000 tweets per month, don't go too crazy with it and don't share your token.  
 # 3DS Video Encoding  
 I use [FFmpeg](https://ffmpeg.org/download.html) to encode my videos to the right format for the New 3DS.  
