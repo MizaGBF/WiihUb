@@ -13,22 +13,22 @@ class Twitter():
         try: # test registered keys (if any)
             self.auth = tweepy.OAuthHandler(self.server.data['twitter_consumer_key'], self.server.data['twitter_consumer_secret'])
             self.auth.set_access_token(self.server.data['twitter_access_token'], self.server.data['twitter_access_token_secret'])
-            self.twitter_api = tweepy.API(self.auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+            self.twitter_api = tweepy.API(self.auth, wait_on_rate_limit=True)
             if self.twitter_api.verify_credentials() is None: raise Exception()
             self.running = True
-        except: # ask for authentification
+        except Exception as e: # ask for authentification
             print("Twitter authentification is required")
-            self.auth = tweepy.OAuthHandler("b3yOKDCjF7fQhrNRRkHtvprIq", "Pk3po2cCfXHaKGPQuoleytbpHRxrPPTDy0s52NcK1AZvV3RIIv")
+            self.auth = tweepy.OAuthHandler("uSMr3m0GmKTqsNT0gnLyBpSPb", "PRya1sy5qkdJek7IWiCUQ3TLcJRcS46mPgOrEQPyllI7xqjTd2")
             try:
                 redirect_url = self.auth.get_authorization_url()
                 webbrowser.open(redirect_url, new=2)
                 print("(Twitter) Please input the code PIN")
                 code = input()
                 self.auth.get_access_token(code)
-                self.twitter_api = tweepy.API(self.auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+                self.twitter_api = tweepy.API(self.auth, wait_on_rate_limit=True)
                 if self.twitter_api.verify_credentials() is None: raise Exception()
-                self.server.data['twitter_consumer_key'] = 'b3yOKDCjF7fQhrNRRkHtvprIq'
-                self.server.data['twitter_consumer_secret'] = 'Pk3po2cCfXHaKGPQuoleytbpHRxrPPTDy0s52NcK1AZvV3RIIv'
+                self.server.data['twitter_consumer_key'] = 'uSMr3m0GmKTqsNT0gnLyBpSPb'
+                self.server.data['twitter_consumer_secret'] = 'PRya1sy5qkdJek7IWiCUQ3TLcJRcS46mPgOrEQPyllI7xqjTd2'
                 self.server.data['twitter_access_token'] = self.auth.access_token
                 self.server.data['twitter_access_token_secret'] = self.auth.access_token_secret
                 self.running = True
@@ -41,14 +41,14 @@ class Twitter():
 
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
-        if not self.running:
+        if not self.running and (path.startswith('/twitter') or path.startswith('/tweet')):
             self.notification = "Twitter not enabled"
             handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
         if path.startswith('/twitter?'):
             options = self.server.getOptions(path, 'twitter')
             try:
-                item = self.twitter_api.get_user(options['account'])
+                item = self.twitter_api.get_user(screen_name=options['account'])
                 page = int(options.get('page', 1))
                 if item is not None:
                     handler.answer(200, {'Content-type': 'text/html'}, self.get_twitter(item, page).encode('utf-8'))
@@ -158,7 +158,7 @@ class Twitter():
         
         html += '<div class="elem">{}</div>'.format(self.statusToHTML(item))
         html += '<div class="elem"><b>First Replies</b></div>'
-        for r in tweepy.Cursor(self.twitter_api.search, q='to:{}'.format(item.user.screen_name), result_type='recent', since_id=item.id_str, tweet_mode='extended').items():
+        for r in tweepy.Cursor(self.twitter_api.search_tweets, q='to:{}'.format(item.user.screen_name), result_type='recent', since_id=item.id_str, tweet_mode='extended').items():
             if hasattr(r, 'in_reply_to_status_id_str') and r.in_reply_to_status_id_str == item.id_str:
                 html += '<div class="elem">{}</div>'.format(self.statusToHTML(r))
         html += '</div>'
@@ -215,7 +215,7 @@ class Twitter():
         
         try:
             count = 1
-            for pt in tweepy.Cursor(self.twitter_api.search, q='{} -filter:retweets'.format(query), tweet_mode='extended').pages():
+            for pt in tweepy.Cursor(self.twitter_api.search_tweets, q='{} -filter:retweets'.format(query), tweet_mode='extended').pages():
                 if count < page:
                     count += 1
                     continue
@@ -240,7 +240,7 @@ class Twitter():
                 tweet += "<b>Retweet from</b>&nbsp;"
             else:
                 tweet += '<img height="16" src="{}" align="left" />'.format(status.user.profile_image_url)
-            tweet += '<b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Open</a><br>'.format(status.user.screen_name, status.user.name, self.getTimedeltaStr(datetime.datetime.utcnow() - status.created_at), status.id_str)
+            tweet += '<b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Open</a><br>'.format(status.user.screen_name, status.user.name, self.getTimedeltaStr(datetime.datetime.now(datetime.timezone.utc) - status.created_at), status.id_str)
             text = status.full_text
             if 'hashtags' in status.entities:
                 for h in reversed(status.entities['hashtags']):

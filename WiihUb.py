@@ -27,6 +27,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.check_client_address(self.client_address) or not self.check_blacklist(path):
             return
         print("GET Request", path)
+        host_address = self.headers.get('Host')
         if path.startswith('/favicon.ico'):
             self.answer(200, {'Content-type':'image/x-icon'}, self.server.icon)
         else:
@@ -36,8 +37,11 @@ class Handler(BaseHTTPRequestHandler):
                         return
                 except:
                     pass
+            if path.startswith('/savedata'):
+                print("Force save result:", self.server.save())
+                self.answer(303, {'Location':'http://{}/manual'.format(host_address)})
+                return
 
-            host_address = self.headers.get('Host')
             if path.startswith('/manual'):
                 self.answer(200, {'Content-type':'text/html'}, self.get_manual().encode('utf-8'))
             elif path == "/":
@@ -92,7 +96,7 @@ class Handler(BaseHTTPRequestHandler):
         return html
 
     def get_manual(self):
-        html = self.server.get_body() + '<style>.elem {display: inline-block;border: 2px solid black;max-width: 300px;background-color: #b8b8b8;}</style><div><div class="elem"><img src="/favicon.ico" /><b>WiihUb Help '+self.server.version+'</b><br><a href="/">Back</a></div>'
+        html = self.server.get_body() + '<style>.elem {display: inline-block;border: 2px solid black;max-width: 300px;background-color: #b8b8b8;}</style><div><div class="elem"><img src="/favicon.ico" /><b>WiihUb Help '+self.server.version+'</b><br><a href="/">Back</a><br><a href="/savedata">Force Save</a><br><a href="https://github.com/MizaGBF/WiihUb">Github</a></div>'
         for p in self.server.plugins:
             try:
                 html += '<div class="elem">'+p.get_manual()+'</div>'
@@ -103,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v3.3.7"
+        self.version = "v3.4.0"
         print("Starting...\n")
         try:
             with open('config.json', 'rb') as f:
@@ -163,9 +167,11 @@ class WiihUb(ThreadingHTTPServer):
         try:
             with open('config.json', 'w') as outfile:
                 json.dump(self.data, outfile, sort_keys=True, indent=4)
+            return True
         except Exception as e:
             print("Failed to save config.json")
             print(e)
+            return False
 
     def get_body(self):
         return '<meta charset="UTF-8"><title>WiihUb</title><body style="background-color: #252f33">'

@@ -15,7 +15,7 @@ class Streamlink():
         self.streamlink_url = None
         self.streamlink_current  = None
         self.notification = None
-        self.quals = {"720p": "720p (30 fps)", "720p60": "720p (60 fps)", "480p": "480p", "360p": "N3DS", "best": "Best", "worst": "Worst", "audio_only":"Audio Only"}
+        self.quals = {"720p": "Wii U TV", "720p60": "Wii U TV (60 fps)", "480p": "Wii U Gamepad", "360p": "N3DS", "best": "Best", "worst": "Worst", "audio_only":"Audio Only", "1080p": "1080p", "1080p60": "1080p (60 fps)"}
 
     def stop(self):
         self.server.data["streamlink_stream"] = self.last_stream
@@ -47,9 +47,9 @@ class Streamlink():
             html += '<div class="elem">{}</div>'.format(self.notification)
             self.notification = None
         html += "</div>"
-        html += '<div class="elem">'
+        html += '<div class="elem"><b>History</b><br>'
         for h in self.history:
-            html += '<a href="/twitch?stream={}&qual={}">{} ({})</a><br>'.format(h[0], h[1], h[0], h[1])
+            html += '<a href="/twitch?stream={}&qual={}">{} ({})</a><br>'.format(h[0], h[1], h[0], self.quals.get(h[1], h[1]))
         if len(self.history) == 0:
             html += 'No streams in the memory'
         html += "</div>"
@@ -186,4 +186,4 @@ class Streamlink():
         return html
 
     def get_manual(self):
-        return '<b>Twitch plugin</b><br>If needed, Streamlink path must be defined in config.json, at "streamlink_path".<br>Currently, only one instance can run at once.<br>Check <a href="https://www.neoseeker.com/members/Dynamite/blog/10285990-viewing-twitch-streams-on-wii-u-using-livestreamer/">this</a> on how to modify Livestream/Streamlink to make it compatible with the Wii U'
+        return '<b>Twitch plugin</b><br>If needed, Streamlink path must be defined in config.json, at "streamlink_path".<br>Currently, only one instance can run at once.<br>Check <a href="https://github.com/MizaGBF/WiihUb">the Github</a> on how to modify Streamlink to make it compatible with the Wii U/N3DS<br><br>Using 60 fps on the Wii U isn\'t recommended.<br>Using higher than 360p on the New Nintendo 3DS isn\'t recommended.'
