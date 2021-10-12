@@ -8,7 +8,7 @@ Flexible and simple plugin system. Currently support:
 * Streamlink calls to receive Twitch streams on your Wii U (Twitch is currently broken on the Wii U/N3DS Browsers).  
 * Screenshot upload (for ease of use).  
 * 4chan Thread search (The search doesn't work anymore on the Wii U Browser).  
-* Twitter Browser (Twitter is now unusable on the Wii U/N3DS Browsers).  
+* Twitter Browser (Requires a Dev account).  
 * E-Pub reader (Support e-pub 2 and 3).  
 * Mangadex Browser.  
 * ExHentai Browser.  
@@ -81,6 +81,14 @@ A bit lower, you'll find:
 Replace `embed` by `frontpage` and you are done.  
 If you are still getting pre-roll ads, wait a few minutes before trying again.  
 Alternatively, you can try `frontpage` or even keep the default, `embed`.  
+# Using Twitter  
+With the new Twitter API V2, it's now more complicated to use Twitter.  
+1. Get a Twitter account.  
+2. Apply for [Dev access](https://developer.twitter.com/en).  
+3. On the dev portal, create a new project and then an application under it.  
+4. Get and copy the **Bearer Token**.  
+5. Either place the token in config.json with the key `twitter_bearer_token` if you know what you are doing OR start WiihUb and click `Set Twitter Key` under `Twitter`, then paste the token and send it.  
+Sadly, the Twitter API V2 limits you to 500000 tweets per month, don't go too crazy with it and don't share your token.  
 # 3DS Video Encoding  
 I use [FFmpeg](https://ffmpeg.org/download.html) to encode my videos to the right format for the New 3DS.  
 A simple example with a command line would be:

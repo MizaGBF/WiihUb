@@ -6,54 +6,30 @@ import urllib.parse
 class Twitter():
     def __init__(self, server):
         self.server = server
-        self.running = False
         self.notification = None
         self.bookmarks = self.server.data.get('twitter_bookmarks', [])
-
-        try: # test registered keys (if any)
-            self.auth = tweepy.OAuthHandler(self.server.data['twitter_consumer_key'], self.server.data['twitter_consumer_secret'])
-            self.auth.set_access_token(self.server.data['twitter_access_token'], self.server.data['twitter_access_token_secret'])
-            self.twitter_api = tweepy.API(self.auth, wait_on_rate_limit=True)
-            if self.twitter_api.verify_credentials() is None: raise Exception()
-            self.running = True
-        except Exception as e: # ask for authentification
-            print("Twitter authentification is required")
-            self.auth = tweepy.OAuthHandler("uSMr3m0GmKTqsNT0gnLyBpSPb", "PRya1sy5qkdJek7IWiCUQ3TLcJRcS46mPgOrEQPyllI7xqjTd2")
-            try:
-                redirect_url = self.auth.get_authorization_url()
-                webbrowser.open(redirect_url, new=2)
-                print("(Twitter) Please input the code PIN")
-                code = input()
-                self.auth.get_access_token(code)
-                self.twitter_api = tweepy.API(self.auth, wait_on_rate_limit=True)
-                if self.twitter_api.verify_credentials() is None: raise Exception()
-                self.server.data['twitter_consumer_key'] = 'uSMr3m0GmKTqsNT0gnLyBpSPb'
-                self.server.data['twitter_consumer_secret'] = 'PRya1sy5qkdJek7IWiCUQ3TLcJRcS46mPgOrEQPyllI7xqjTd2'
-                self.server.data['twitter_access_token'] = self.auth.access_token
-                self.server.data['twitter_access_token_secret'] = self.auth.access_token_secret
-                self.running = True
-            except Exception as x:
-                print("Authentification failed")
-                self.server.printex(x)
+        self.client = None
+        self.user_cache = {}
+        self.token_cache = {}
+        self.bearer = self.server.data.get('twitter_bearer_token', None)
+        try: self.client = tweepy.Client(bearer_token = self.bearer)
+        except: pass
 
     def stop(self):
         self.server.data['twitter_bookmarks'] = self.bookmarks
+        self.server.data['twitter_bearer_token'] = self.bearer
 
     def process_get(self, handler, path):
         host_address = handler.headers.get('Host')
-        if not self.running and (path.startswith('/twitter') or path.startswith('/tweet')):
+        if (path.startswith('/twitter') or path.startswith('/tweet')) and self.client is None:
             self.notification = "Twitter not enabled"
             handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
         if path.startswith('/twitter?'):
             options = self.server.getOptions(path, 'twitter')
             try:
-                item = self.twitter_api.get_user(screen_name=options['account'])
-                page = int(options.get('page', 1))
-                if item is not None:
-                    handler.answer(200, {'Content-type': 'text/html'}, self.get_twitter(item, page).encode('utf-8'))
-                    return True
-                else: raise Exception('Account not found')
+                handler.answer(200, {'Content-type': 'text/html'}, self.getTimeline(options['account'], options.get('token', None)).encode('utf-8'))
+                return True
             except Exception as e:
                 print("Twitter error")
                 self.server.printex(e)
@@ -63,11 +39,8 @@ class Twitter():
         elif path.startswith('/tweet?'):
             options = self.server.getOptions(path, 'tweet')
             try:
-                item = self.twitter_api.get_status(options['id'], tweet_mode='extended')
-                if item is not None:
-                    handler.answer(200, {'Content-type': 'text/html'}, self.get_tweet(item).encode('utf-8'))
-                    return True
-                else: raise Exception('Tweet not found')
+                handler.answer(200, {'Content-type': 'text/html'}, self.get_single_tweet(options['id']).encode('utf-8'))
+                return True
             except Exception as e:
                 print("Tweet error")
                 self.server.printex(e)
@@ -77,7 +50,7 @@ class Twitter():
         elif path.startswith('/twittersearch?'):
             options = self.server.getOptions(path, 'twittersearch')
             try:
-                handler.answer(200, {'Content-type': 'text/html'}, self.get_search(urllib.parse.unquote(options['query']), int(options.get('page', 1))).encode('utf-8'))
+                handler.answer(200, {'Content-type': 'text/html'}, self.getQuery(urllib.parse.unquote(options['query']), options.get('token', None)).encode('utf-8'))
                 return True
             except Exception as e:
                 print("Twitter search error")
@@ -115,6 +88,21 @@ class Twitter():
         elif path.startswith('/twitterbookmark'):
             handler.answer(200, {'Content-type': 'text/html'}, self.get_bookmarks().encode('utf-8'))
             return True
+        elif path.startswith('/twittersetup'):
+            handler.answer(200, {'Content-type': 'text/html'}, self.get_setup().encode('utf-8'))
+            return True
+        elif path.startswith('/twitterkey?'):
+            options = self.server.getOptions(path, 'twitterkey')
+            try:
+                self.bearer = urllib.parse.unquote(options['key'])
+                try: self.client = tweepy.Client(bearer_token = self.bearer)
+                except: pass
+                self.notification += "Key Set Successfully"
+            except Exception as e:
+                self.notification += "An error occured\n" + str(e)
+                self.server.printex(e)
+            handler.answer(303, {'Location': 'http://{}'.format(host_address)})
+            return True
         return False
 
     def process_post(self, handler, path):
@@ -133,6 +121,14 @@ class Twitter():
         html += '</div>'
         return html
 
+    def get_setup(self):
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
+        html += '<div class="elem"><a href="/">Back</a><br><form action="/twitterkey"><label for="key">Set Key </label><input type="text" id="key" name="key" value=""><br><input type="submit" value="Send"></form></div>'
+        if self.notification is not None:
+            html += '<div class="elem">{}</div>'.format(self.notification)
+            self.notification = None
+        return html
+
     def getTimedeltaStr(self, delta):
         y = delta.days // 365
         d = delta.days % 365
@@ -148,132 +144,220 @@ class Twitter():
         if s > 0: msg += "{}s".format(s)
         return msg
 
-    def get_tweet(self, item):
-        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><div>'
-        html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
-        if item.user.screen_name in self.bookmarks: html += '<a href="/twitterdel?account={}&source={}">Remove from bookmarks</a>'.format(item.user.screen_name, item.user.screen_name)
-        else: html += '<a href="/twitteradd?account={}&source={}">Add to bookmarks</a>'.format(item.user.screen_name, item.user.screen_name)
-        html += '</div>'
-        html += '<div class="elem"><img height="50" src="{}" align="left" /><b><a href="/twitter?account={}">{}</a><br></b>{}</div>'.format(item.user.profile_image_url, item.user.screen_name, item.user.name, item.user.description.replace('\n', '<br>'))
-        
-        html += '<div class="elem">{}</div>'.format(self.statusToHTML(item))
-        html += '<div class="elem"><b>First Replies</b></div>'
-        for r in tweepy.Cursor(self.twitter_api.search_tweets, q='to:{}'.format(item.user.screen_name), result_type='recent', since_id=item.id_str, tweet_mode='extended').items():
-            if hasattr(r, 'in_reply_to_status_id_str') and r.in_reply_to_status_id_str == item.id_str:
-                html += '<div class="elem">{}</div>'.format(self.statusToHTML(r))
-        html += '</div>'
-        html += '</body>'
-        return html
-
-    def get_twitter(self, item, page=1):
-        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><div>'
-        html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
-        if item.screen_name in self.bookmarks: html += '<a href="/twitterdel?account={}&source={}">Remove from bookmarks</a>'.format(item.screen_name, item.screen_name)
-        else: html += '<a href="/twitteradd?account={}&source={}">Add to bookmarks</a>'.format(item.screen_name, item.screen_name)
-        page_footer = '<div style="font-size:30px">'
-        for pi in range(max(1, page-5), max(1, page+5)):
-            if pi < page:
-                page_footer += '<a href="/twitter?account={}&page={}">{}</a> #'.format(item.screen_name, pi, pi)
-            elif pi == page:
-                page_footer += '<b>{}</b>'.format(pi)
-            else:
-                page_footer += '# <a href="/twitter?account={}&page={}">{}</a>'.format(item.screen_name, pi, pi)
-        page_footer += '</div>'
-        html += '<br>' + page_footer
-        html += '</div>'
-        html += '<div class="elem"><img height="50" src="{}" align="left" /><b><a href="/twitter?account={}">{}</a><br></b>{}</div>'.format(item.profile_image_url, item.screen_name, item.name, item.description.replace('\n', '<br>'))
-        
-        count = 1
-        for pt in tweepy.Cursor(self.twitter_api.user_timeline, id=item.screen_name, tweet_mode='extended').pages():
-            if count < page:
-                count += 1
-                continue
-            count += 1
-            for cst in pt:
-                status = cst
-                html += '<div class="elem">{}</div>'.format(self.statusToHTML(cst))
-            break
-        html += '</div>'
-        html += '<div class="elem">' + page_footer + '</div>'
-        html += '</body>'
-        return html
-
-    def get_search(self, query, page=1):
-        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><div>'
-        html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
-        page_footer = '<div style="font-size:30px">'
-        for pi in range(max(1, page-5), max(1, page+5)):
-            if pi < page:
-                page_footer += '<a href="/twittersearch?query={}&page={}">{}</a> #'.format(query, pi, pi)
-            elif pi == page:
-                page_footer += '<b>{}</b>'.format(pi)
-            else:
-                page_footer += '# <a href="/twittersearch?query={}&page={}">{}</a>'.format(query, pi, pi)
-        page_footer += '</div>'
-        html += '<br>' + page_footer
-        html += '</div>'
-        
+    def get_user(self, id):
+        if id in self.user_cache:
+            return self.user_cache[id]
         try:
-            count = 1
-            for pt in tweepy.Cursor(self.twitter_api.search_tweets, q='{} -filter:retweets'.format(query), tweet_mode='extended').pages():
-                if count < page:
-                    count += 1
-                    continue
-                count += 1
-                for cst in pt:
-                    status = cst
-                    html += '<div class="elem">{}</div>'.format(self.statusToHTML(cst))
-                break
+            user = self.client.get_user(id=id, user_fields=['description', 'profile_image_url', 'pinned_tweet_id']).data
+            if len(list(self.user_cache.keys())) > 100:
+                self.user_cache = {}
+            self.user_cache[id] = user
+            return user
         except:
-            html += '<div class="elem">No more results</div>'
+            return None
+
+    def update_user(self, id, user):
+        self.user_cache[id] = user
+
+    def get_single_tweet(self, id):
+        tweets = self.client.get_tweets(ids=[id], tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'])
+        tweet = tweets.data[0]
+        user = self.get_user(tweet.author_id)
+        try: media = {m["media_key"]: m for m in tweets.includes['media']}
+        except: media = {}
+        for u in tweets.includes.get('users', []):
+            self.update_user(u.id, u)
+        try: references = {m.id: m for m in tweets.includes['tweets']}
+        except: references = {}
+
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><div>'
+        html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
+        if user.username in self.bookmarks: html += '<a href="/twitterdel?account={}&source={}">Remove from bookmarks</a>'.format(user.username, user.username)
+        else: html += '<a href="/twitteradd?account={}&source={}">Add to bookmarks</a>'.format(user.username, user.username)
+        html += '</div>'
+        html += '<div class="elem">{}</div>'.format(self.tweetToHTML(tweet, media, references))
+        html += '</div>'
+        html += '</body>'
+        return html
+
+    def getTimeline(self, username, token):
+        user = self.client.get_user(username=username, user_fields=['description', 'profile_image_url', 'pinned_tweet_id']).data
+        self.update_user(user.id, user)
+        if token is None:
+            tweets = self.client.get_users_tweets(id=user.id, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'], max_results=10)
+        else:
+            tweets = self.client.get_users_tweets(id=user.id, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'], pagination_token=token, max_results=10)
+        try: next_token = tweets.meta['next_token']
+        except: next_token = None
+        try: prev_token = tweets.meta['previous_token']
+        except: prev_token = None
+        try: media = {m["media_key"]: m for m in tweets.includes['media']}
+        except: media = {}
+        for u in tweets.includes.get('users', []):
+            self.update_user(u.id, u)
+        try: references = {m.id: m for m in tweets.includes['tweets']}
+        except: references = {}
+
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><div>'
+        html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
+        if username in self.bookmarks: html += '<a href="/twitterdel?account={}&source={}">Remove from bookmarks</a>'.format(username, username)
+        else: html += '<a href="/twitteradd?account={}&source={}">Add to bookmarks</a>'.format(username, username)
+        page_footer = ""
+        if prev_token is not None and prev_token != "None":
+            page_footer += '<a href="/twitter?account={}&token={}">Previous</a>'.format(username, prev_token)
+        if next_token is not None and next_token != "None":
+            if page_footer != "": page_footer += " # "
+            page_footer += '<a href="/twitter?account={}&token={}">Next</a>'.format(username, next_token)
+        page_footer = '<div style="font-size:30px">' + page_footer + '</div>'
+        html += '<br>' + page_footer
+        html += '</div>'
+        html += '<div class="elem"><img height="50" src="{}" align="left" /><b><a href="/twitter?account={}">{}</a><br></b>{}</div>'.format(user.profile_image_url, user.username, user.name, user.description.replace('\n', '<br>'))
+
+        for tweet in tweets.data:
+            html += '<div class="elem">{}</div>'.format(self.tweetToHTML(tweet, media, references))
         html += '</div>'
         html += '<div class="elem">' + page_footer + '</div>'
         html += '</body>'
         return html
 
-    def statusToHTML(self, status):
+    def getQuery(self, query, token):
+        if token is None:
+            tweets = self.client.search_recent_tweets(query=query, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'], max_results=10)
+        else:
+            tweets = self.client.search_recent_tweets(query=query, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'], next_token=token, max_results=10)
+        
+        cache_size = 0
+        for k in self.token_cache:
+            cache_size += len(list(self.token_cache[k].keys()))
+            if cache_size > 100:
+                tmp = self.token_cache.get(query, {})
+                self.token_cache = {query:tmp}
+                break
+        
         try:
-            tweet = ""
-            if status.full_text.startswith('RT @'):
-                status = status.retweeted_status
-                tweet += '<img height="16" src="{}" align="left" />'.format(status.user.profile_image_url)
-                tweet += "<b>Retweet from</b>&nbsp;"
-            else:
-                tweet += '<img height="16" src="{}" align="left" />'.format(status.user.profile_image_url)
-            tweet += '<b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Open</a><br>'.format(status.user.screen_name, status.user.name, self.getTimedeltaStr(datetime.datetime.now(datetime.timezone.utc) - status.created_at), status.id_str)
-            text = status.full_text
-            if 'hashtags' in status.entities:
-                for h in reversed(status.entities['hashtags']):
-                    text = text[:h['indices'][0]] + '<a href="/twittersearch?query=' + text[h['indices'][0]:h['indices'][1]] + '">' + text[h['indices'][0]:h['indices'][1]] + '</a>&nbsp;' +  text[h['indices'][1]:]
-            tweet += text.replace('\n', '<br>')
-            try:
-                for i in range(len(status.extended_entities['media'])):
-                    try:
-                        if i == 0: tweet += '<br>'
-                        tweet += '<img src="{}">'.format(status.extended_entities['media'][i]['media_url'])
-                        tweet = tweet.replace(status.extended_entities['media'][i]['url'], '')
-                    except: pass
-            except: pass
-            if 'urls' in status.entities:
+            next_token = tweets.meta['next_token']
+            if token is not None:
+                if query not in self.token_cache:
+                    self.token_cache[query] = {}
+                if next_token not in self.token_cache[query]:
+                    self.token_cache[query][next_token] = token
+        except: next_token = None
+        try: prev_token = self.token_cache[query][token]
+        except: prev_token = None
+        try: media = {m["media_key"]: m for m in tweets.includes['media']}
+        except: media = {}
+        for u in tweets.includes.get('users', []):
+            self.update_user(u.id, u)
+        try: references = {m.id: m for m in tweets.includes['tweets']}
+        except: references = {}
+
+        html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} img{ max-width:400px; max-height:300px;}</style><div>'
+        html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
+        page_footer = ""
+        if prev_token is None and token is not None:
+            page_footer += '<a href="/twittersearch?query={}">Previous</a>'.format(urllib.parse.quote(query))
+        elif prev_token is not None:
+            page_footer += '<a href="/twittersearch?query={}&token={}">Previous</a>'.format(urllib.parse.quote(query), prev_token)
+        if next_token is not None and next_token != "None":
+            if page_footer != "": page_footer += " # "
+            page_footer += '<a href="/twittersearch?query={}&token={}">Next</a>'.format(urllib.parse.quote(query), next_token)
+        page_footer = '<div style="font-size:30px">' + page_footer + '</div>'
+        html += '<br>' + page_footer
+        html += '</div>'
+
+        for tweet in tweets.data:
+            html += '<div class="elem">{}</div>'.format(self.tweetToHTML(tweet, media, references))
+        html += '</div>'
+        html += '<div class="elem">' + page_footer + '</div>'
+        html += '</body>'
+        return html
+
+    def tweetTextFormat(self, status):
+        text = status.text
+        if status.entities and 'hashtags' in status.entities:
+            for h in reversed(status.entities['hashtags']):
+                text = text[:h['start']] + '<a href="/twittersearch?query=' + h['tag'] + '">#' + h['tag'] + '</a>&nbsp;' +  text[h['end']:]
+        return text.replace('\n', '<br>')
+
+    def tweetExtraFormat(self, tweet, status, media):
+        try:
+            attachments = status.data['attachments']
+            media_keys = attachments['media_keys']
+            first = True
+            for k in media_keys:
+                try:
+                    if first:
+                        tweet += '<br>'
+                        first = False
+                    if media[k].type == 'photo':
+                        tweet += '<img src="{}">'.format(media[k].url)
+                    elif media[k].type == 'video':
+                        tweet += '<img src="{}">'.format(media[k].url)
+                    else:
+                        tweet += '<img src="{}">'.format(media[k].preview_image_url)
+                except:
+                    pass
+        except:
+            pass
+        if status.entities:
+            if'urls' in status.entities:
                 for m in status.entities['urls']:
-                    if m['expanded_url'].startswith('https://twitter.com/'):
+                    if m['expanded_url'].startswith('https://twitter.com/') and ('/photo/' in m['expanded_url'] or '/video/' in m['expanded_url']):
+                        tweet = tweet.replace(m['url'], '')
+                    elif m['expanded_url'].startswith('https://twitter.com/'):
                         urltid = m['expanded_url'].split('/')
                         if len(urltid) > 0:
-                            tweet = tweet.replace(m['url'], '<a href="/tweet?id={}">{}</a>'.format(urltid[-1], m['expanded_url']))
+                            tweet = tweet.replace(m['url'], '<a href="/tweet?id={}">{}</a>&nbsp;'.format(urltid[-1], m['expanded_url']))
                     else:
-                        tweet = tweet.replace(m['url'], '<a href="{}">{}</a>'.format(m['expanded_url'].replace('https://twitch.tv/', '/twitch?stream=').replace('http://twitch.tv/', '/twitch?stream=').replace('https://m.twitch.tv/', '/twitch?stream=').replace('http://m.twitch.tv/', '/twitch?stream=').replace('https://www.twitch.tv/', '/twitch?stream=').replace('http://www.twitch.tv/', '/twitch?stream=').replace('https://www.pixiv.net/en/artworks/', '/pixivpage?id=').replace('https://www.pixiv.net/artworks/', '/pixivpage?id='), m['expanded_url']))
-            if 'user_mentions' in status.entities:
-                for m in status.entities['user_mentions']:
-                    tweet = tweet.replace('@'+m['screen_name'], '<a href="/twitter?account={}">@{}</a>'.format(m['screen_name'], m['screen_name']))
-                tweet += '<br><div style="font-size:12px">{} RT, {} Likes</div>'.format(status.retweet_count, status.favorite_count)
-            tweet = tweet.replace('?s=20', '')
+                        tweet = tweet.replace(m['url'], '<a href="{}">{}</a>&nbsp;'.format(m['expanded_url'].replace('https://twitch.tv/', '/twitch?stream=').replace('http://twitch.tv/', '/twitch?stream=').replace('https://m.twitch.tv/', '/twitch?stream=').replace('http://m.twitch.tv/', '/twitch?stream=').replace('https://www.twitch.tv/', '/twitch?stream=').replace('http://www.twitch.tv/', '/twitch?stream=').replace('https://www.pixiv.net/en/artworks/', '/pixivpage?id=').replace('https://www.pixiv.net/artworks/', '/pixivpage?id='), m['expanded_url']))
+            if 'mentions' in status.entities:
+                for m in status.entities['mentions']:
+                    tweet = tweet.replace('@'+m['username'], '<a href="/twitter?account={}">@{}</a>&nbsp;'.format(m['username'], m['username']))
+        return tweet.replace('?s=20', '')
+
+    def tweetToHTML(self, status, media, references):
+        try:
+            tweet = ""
+            try:
+                ref = status.referenced_tweets[0]
+                r = references[ref.id]
+                if r is not None:
+                    if ref.type in ["retweeted", "quoted", "replied_to"]:
+                        user = self.get_user(status.author_id)
+                        tweet += '<img height="16" src="{}" align="left" />'.format(user.profile_image_url)
+                        tweet += '<br><b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Open</a><br>'.format(user.username, user.name, self.getTimedeltaStr(datetime.datetime.now(datetime.timezone.utc) - status.created_at), status.id)
+                        if ref.type != "retweeted":
+                            if status.public_metrics:
+                                tweet += '<div style="font-size:12px">{} Replies, {} RT, {} Quotes, {} Likes</div><br>'.format(status.public_metrics['reply_count'], status.public_metrics['retweet_count'], status.public_metrics['quote_count'], status.public_metrics['like_count'])
+                            tweet += self.tweetTextFormat(status)
+                            tweet = self.tweetExtraFormat(tweet, status, media)
+                        status = r
+                        user = self.get_user(status.author_id)
+                        tweet += '<br><br><img height="16" src="{}" align="left" />'.format(user.profile_image_url)
+                        if ref.type == "retweeted": tweet += "<b>Retweeted</b>&nbsp;"
+                        elif ref.type == "quoted": tweet += "<b>Quoted</b>&nbsp;"
+                        elif ref.type == "replied_to": tweet += "<b>Replied to</b>&nbsp;"
+                    else:
+                        raise Exception()
+                else:
+                    raise Exception()
+            except:
+                user = self.get_user(status.author_id)
+                tweet += '<img height="16" src="{}" align="left" />'.format(user.profile_image_url)
+            tweet += '<b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Open</a><br>'.format(user.username, user.name, self.getTimedeltaStr(datetime.datetime.now(datetime.timezone.utc) - status.created_at), status.id)
+            if status.public_metrics:
+                tweet += '<div style="font-size:12px">{} Replies, {} RT, {} Quotes, {} Likes</div><br>'.format(status.public_metrics['reply_count'], status.public_metrics['retweet_count'], status.public_metrics['quote_count'], status.public_metrics['like_count'])
+            tweet += self.tweetTextFormat(status)
+            tweet = self.tweetExtraFormat(tweet, status, media)
         except Exception as e: 
-            return '<b>Tweet failed to load:</b><br>{}<br>{}'.format(e, status)
+            self.server.printex(e)
+            return '<b>Tweet failed to load:</b><br>{}<br>{}<br>'.format(e, status)
         return tweet
 
     def get_interface(self):
         html = '<form action="/twittersearch"><legend><b>Twitter Browser</b></legend><label for="query">Search </label><input type="text" id="query" name="query" value=""><br><input type="submit" value="Send"></form>'
         html += '<a href="/twitterbookmark">Open Bookmarks</a><br>'
+        html += '<a href="/twittersetup">Set Twitter Key</a><br>'
         if self.notification is not None:
             html += "{}<br>".format(self.notification)
             self.notification = None
