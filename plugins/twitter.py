@@ -315,40 +315,51 @@ class Twitter():
                     tweet = tweet.replace('@'+m['username'], '<a href="/twitter?account={}">@{}</a>&nbsp;'.format(m['username'], m['username']))
         return tweet.replace('?s=20', '')
 
-    def tweetToHTML(self, status, media, references):
+
+    def tweetToHTML(self, status, media, references, type=None):
         try:
             tweet = ""
+            user = self.get_user(status.author_id)
+            if type is None:
+                tweet += '<img height="16" src="{}" align="left" />'.format(user.profile_image_url)
+            else:
+                tweet += '<br><br><img height="16" src="{}" align="left" />'.format(user.profile_image_url)
+                if type == "retweeted": tweet += "<b>Retweeted</b>&nbsp;"
+                elif type == "quoted": tweet += "<b>Quoted</b>&nbsp;"
+                elif type == "replied_to": tweet += "<b>Replied to</b>&nbsp;"
+            tweet += '<b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Open</a><br>'.format(user.username, user.name, self.getTimedeltaStr(datetime.datetime.now(datetime.timezone.utc) - status.created_at), status.id)
+            
             try:
+                if type is not None: raise Exception()
                 ref = status.referenced_tweets[0]
                 r = references[ref.id]
                 if r is not None:
                     if ref.type in ["retweeted", "quoted", "replied_to"]:
-                        user = self.get_user(status.author_id)
-                        tweet += '<img height="16" src="{}" align="left" />'.format(user.profile_image_url)
-                        tweet += '<br><b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Open</a><br>'.format(user.username, user.name, self.getTimedeltaStr(datetime.datetime.now(datetime.timezone.utc) - status.created_at), status.id)
                         if ref.type != "retweeted":
                             if status.public_metrics:
                                 tweet += '<div style="font-size:12px">{} Replies, {} RT, {} Quotes, {} Likes</div><br>'.format(status.public_metrics['reply_count'], status.public_metrics['retweet_count'], status.public_metrics['quote_count'], status.public_metrics['like_count'])
                             tweet += self.tweetTextFormat(status)
                             tweet = self.tweetExtraFormat(tweet, status, media)
-                        status = r
-                        user = self.get_user(status.author_id)
-                        tweet += '<br><br><img height="16" src="{}" align="left" />'.format(user.profile_image_url)
-                        if ref.type == "retweeted": tweet += "<b>Retweeted</b>&nbsp;"
-                        elif ref.type == "quoted": tweet += "<b>Quoted</b>&nbsp;"
-                        elif ref.type == "replied_to": tweet += "<b>Replied to</b>&nbsp;"
+                    
+                        tweets = self.client.get_tweets(ids=[r.id], tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'])
+                        r = tweets.data[0]
+                        try: _media = {m["media_key"]: m for m in tweets.includes['media']}
+                        except: _media = {}
+                        for u in tweets.includes.get('users', []):
+                            self.update_user(u.id, u)
+                        try: _references = {m.id: m for m in tweets.includes['tweets']}
+                        except: _references = {}
+                        tweet += self.tweetToHTML(r, _media, _references, ref.type)
+                        return tweet
                     else:
                         raise Exception()
                 else:
                     raise Exception()
             except:
-                user = self.get_user(status.author_id)
-                tweet += '<img height="16" src="{}" align="left" />'.format(user.profile_image_url)
-            tweet += '<b><a href="/twitter?account={}">{}</a></b> {} ago # <a href="/tweet?id={}">Open</a><br>'.format(user.username, user.name, self.getTimedeltaStr(datetime.datetime.now(datetime.timezone.utc) - status.created_at), status.id)
-            if status.public_metrics:
-                tweet += '<div style="font-size:12px">{} Replies, {} RT, {} Quotes, {} Likes</div><br>'.format(status.public_metrics['reply_count'], status.public_metrics['retweet_count'], status.public_metrics['quote_count'], status.public_metrics['like_count'])
-            tweet += self.tweetTextFormat(status)
-            tweet = self.tweetExtraFormat(tweet, status, media)
+                if status.public_metrics:
+                    tweet += '<div style="font-size:12px">{} Replies, {} RT, {} Quotes, {} Likes</div><br>'.format(status.public_metrics['reply_count'], status.public_metrics['retweet_count'], status.public_metrics['quote_count'], status.public_metrics['like_count'])
+                tweet += self.tweetTextFormat(status)
+                tweet = self.tweetExtraFormat(tweet, status, media)
         except Exception as e: 
             self.server.printex(e)
             return '<b>Tweet failed to load:</b><br>{}<br>{}<br>'.format(e, status)
