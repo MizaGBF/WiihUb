@@ -123,7 +123,7 @@ class Twitter():
 
     def get_setup(self):
         html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
-        html += '<div class="elem"><a href="/">Back</a><br><form action="/twitterkey"><label for="key">Set Key </label><input type="text" id="key" name="key" value=""><br><input type="submit" value="Send"></form></div>'
+        html += '<div class="elem"><a href="/">Back</a><br><form action="/twitterkey"><label for="key">Set Token </label><input type="text" id="key" name="key" value=""><br><input type="submit" value="Send"></form></div>'
         if self.notification is not None:
             html += '<div class="elem">{}</div>'.format(self.notification)
             self.notification = None
@@ -357,11 +357,11 @@ class Twitter():
     def get_interface(self):
         html = '<form action="/twittersearch"><legend><b>Twitter Browser</b></legend><label for="query">Search </label><input type="text" id="query" name="query" value=""><br><input type="submit" value="Send"></form>'
         html += '<a href="/twitterbookmark">Open Bookmarks</a><br>'
-        html += '<a href="/twittersetup">Set Twitter Key</a><br>'
+        html += '<br><a href="/twittersetup">Set Bearer Token</a><br>'
         if self.notification is not None:
             html += "{}<br>".format(self.notification)
             self.notification = None
         return html
 
     def get_manual(self):
-        return '<b>Twitter Browser plugin</b><br>A Twitter account is required to access the API.'
+        return '<b>Twitter Browser plugin</b><br>A Developer Twitter account is required to access the API and use this plugin.'
