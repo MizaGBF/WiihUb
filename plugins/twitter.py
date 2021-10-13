@@ -160,7 +160,7 @@ class Twitter():
         self.user_cache[id] = user
 
     def get_single_tweet(self, id):
-        tweets = self.client.get_tweets(ids=[id], tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'])
+        tweets = self.client.get_tweets(ids=[id], tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'])
         tweet = tweets.data[0]
         user = self.get_user(tweet.author_id)
         try: media = {m["media_key"]: m for m in tweets.includes['media']}
@@ -184,9 +184,9 @@ class Twitter():
         user = self.client.get_user(username=username, user_fields=['description', 'profile_image_url', 'pinned_tweet_id']).data
         self.update_user(user.id, user)
         if token is None:
-            tweets = self.client.get_users_tweets(id=user.id, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'], max_results=10)
+            tweets = self.client.get_users_tweets(id=user.id, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'], max_results=10)
         else:
-            tweets = self.client.get_users_tweets(id=user.id, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'], pagination_token=token, max_results=10)
+            tweets = self.client.get_users_tweets(id=user.id, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'], pagination_token=token, max_results=10)
         try: next_token = tweets.meta['next_token']
         except: next_token = None
         try: prev_token = tweets.meta['previous_token']
@@ -222,9 +222,9 @@ class Twitter():
 
     def getQuery(self, query, token):
         if token is None:
-            tweets = self.client.search_recent_tweets(query=query, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'], max_results=10)
+            tweets = self.client.search_recent_tweets(query=query, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'], max_results=10)
         else:
-            tweets = self.client.search_recent_tweets(query=query, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'], next_token=token, max_results=10)
+            tweets = self.client.search_recent_tweets(query=query, tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'], next_token=token, max_results=10)
         
         cache_size = 0
         for k in self.token_cache:
@@ -341,7 +341,7 @@ class Twitter():
                             tweet += self.tweetTextFormat(status)
                             tweet = self.tweetExtraFormat(tweet, status, media)
                     
-                        tweets = self.client.get_tweets(ids=[r.id], tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id,' 'referenced_tweets.id.author_id'])
+                        tweets = self.client.get_tweets(ids=[r.id], tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'])
                         r = tweets.data[0]
                         try: _media = {m["media_key"]: m for m in tweets.includes['media']}
                         except: _media = {}
