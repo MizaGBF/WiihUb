@@ -77,7 +77,7 @@ On Streamlink 2.0.0 and further, go to:
 Open `twitch.py` and search for the function  
 `def access_token(self, is_live, channel_or_vod):`  
 A bit lower, you'll find:
-`"playerType": "embed"`
+`"playerType": "embed"` or `"playerType="embed"`
 Replace `embed` by `frontpage` and you are done.  
 If you are still getting pre-roll ads, wait a few minutes before trying again.  
 Alternatively, you can try `frontpage` or even keep the default, `embed`.  
