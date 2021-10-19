@@ -9,10 +9,8 @@ class Mangadex():
     def __init__(self, server):
         self.server = server
         self.api = "https://api.mangadex.org"
-        self.cookies = self.server.data.get("mangadex_cookie", {})
         self.lang_filter = self.server.data.get("mangadex_languages", ['en'])
-        if self.lang_filter is None or len(self.lang_filter) == 0:
-            self.lang_filter = ['en']
+        self.lang_excluded = self.server.data.get("mangadex_exclude_languages", [])
         self.cache = {}
         self.imgcache = {}
         self.lock = threading.Lock()
@@ -20,8 +18,8 @@ class Mangadex():
         self.page_limit = 40
 
     def stop(self):
-        self.server.data["mangadex_cookie"] = self.cookies
         self.server.data["mangadex_languages"] = self.lang_filter
+        self.server.data["mangadex_exclude_languages"] = self.lang_excluded
 
     def updateCookie(self, headers):
         res = {}
@@ -91,10 +89,13 @@ class Mangadex():
             self.cache[js['data']['id']]['cover'] = self.get_manga_cover(covert_id)['data']['attributes']['fileName']
         return js
 
-    def get_mangas(self, params={}):
+    def get_mangas(self, params={}, searchUsed=False):
         params['limit'] = self.page_limit
         params['order[latestUploadedChapter]'] = "desc"
-        params['availableTranslatedLanguage[]'] = self.lang_filter
+        if self.lang_filter is not None and len(self.lang_filter) > 0:
+            params['availableTranslatedLanguage[]'] = self.lang_filter
+        if not searchUsed and self.lang_excluded is not None and len(self.lang_excluded) > 0:
+            params['excludedOriginalLanguage[]'] = self.lang_excluded
         time.sleep(0.5)
         js = self.requestGet(f"{self.api}/manga", params=params).json()
         check = js.get('result', None)
@@ -226,7 +227,7 @@ class Mangadex():
                     mangas, total = self.get_mangas({'offset':page*self.page_limit, "includedTags[]":[tag]})
                     app = f"&tag={tag}"
                 elif query != '':
-                    mangas, total = self.get_mangas({'offset':page*self.page_limit, "title":query})
+                    mangas, total = self.get_mangas({'offset':page*self.page_limit, "title":query}, searchUsed=True)
                     app = f"&query={quote(query).replace(' ', '+')}"
                 else:
                     mangas, total = self.get_mangas({'offset':page*self.page_limit})
@@ -413,4 +414,4 @@ class Mangadex():
         return html
 
     def get_manual(self):
-        return '<b>Mangadex Browser plugin</b><br>A cookie is saved in config.json.'
+        return "<b>Mangadex Browser plugin</b><br>You'll find two modifiable values in config.json:<br>* \"mangadex_exclude_languages\" lets you exclude mangas from a certain language (for example, jp to remove all japanese mangas.<br>* \"mangadex_languages\" lets you set what languages you want to read your chapters in.<br><br>Both are array so the value must be for example [\"jp\",\"en\"]"

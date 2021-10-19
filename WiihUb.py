@@ -96,7 +96,7 @@ class Handler(BaseHTTPRequestHandler):
         return html
 
     def get_manual(self):
-        html = self.server.get_body() + '<style>.elem {display: inline-block;border: 2px solid black;max-width: 300px;background-color: #b8b8b8;}</style><div><div class="elem"><img src="/favicon.ico" /><b>WiihUb Help '+self.server.version+'</b><br><a href="/">Back</a><br><a href="/savedata">Force Save</a><br><a href="https://github.com/MizaGBF/WiihUb">Github</a></div>'
+        html = self.server.get_body() + '<style>.elem {display: inline-block;border: 2px solid black;max-width: 500px;background-color: #b8b8b8;}</style><div><div class="elem"><img src="/favicon.ico" /><b>WiihUb Help '+self.server.version+'</b><br><a href="/">Back</a><br><a href="/savedata">Force Save</a><br><a href="https://github.com/MizaGBF/WiihUb">Github</a></div>'
         for p in self.server.plugins:
             try:
                 html += '<div class="elem">'+p.get_manual()+'</div>'
@@ -107,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v3.4.4"
+        self.version = "v3.4.5"
         print("Starting...\n")
         try:
             with open('config.json', 'rb') as f:
