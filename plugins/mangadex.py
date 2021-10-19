@@ -11,6 +11,8 @@ class Mangadex():
         self.api = "https://api.mangadex.org"
         self.cookies = self.server.data.get("mangadex_cookie", {})
         self.lang_filter = self.server.data.get("mangadex_languages", ['en'])
+        if self.lang_filter is None or len(self.lang_filter) == 0:
+            self.lang_filter = ['en']
         self.cache = {}
         self.imgcache = {}
         self.lock = threading.Lock()
@@ -19,7 +21,6 @@ class Mangadex():
 
     def stop(self):
         self.server.data["mangadex_cookie"] = self.cookies
-        self.server.data["mangadex_bookmark"] = self.bookmarks
         self.server.data["mangadex_languages"] = self.lang_filter
 
     def updateCookie(self, headers):
@@ -92,7 +93,8 @@ class Mangadex():
 
     def get_mangas(self, params={}):
         params['limit'] = self.page_limit
-        params['order[updatedAt]'] = "desc"
+        params['order[latestUploadedChapter]'] = "desc"
+        params['availableTranslatedLanguage[]'] = self.lang_filter
         time.sleep(0.5)
         js = self.requestGet(f"{self.api}/manga", params=params).json()
         check = js.get('result', None)
@@ -291,6 +293,8 @@ class Mangadex():
                     else: html += 'Chapter ?? '
                     if ch["attributes"]["title"] is not None: html += f'{ch["attributes"]["title"]} '
                     html += f'({ch["attributes"]["translatedLanguage"]})<br>'
+                if len(m['chapter_list']) == 0:
+                    html += "<b>No chapters available via Mangadex and/or in your selected language(s)</b>"
                 html += '</div>'
                 html += footer
                 html += '</body>'
