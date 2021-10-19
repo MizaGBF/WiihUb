@@ -169,14 +169,42 @@ class Mangadex():
             total = j['total']
             offset += len(j['data'])
 
+    def cmp_chapter(self, a, b):
+        lang = a['attributes']['translatedLanguage']
+        if a['attributes']['translatedLanguage'] != b['attributes']['translatedLanguage']: return "No Match"
+        try:
+            ca = float(a['attributes']['volume'])
+            cb = float(b['attributes']['volume'])
+            if ca < cb: return "Next"
+            elif ca > cb: return "Previous"
+        except:
+            pass
+        try:
+            ca = float(a['attributes']['chapter'])
+            cb = float(b['attributes']['chapter'])
+            if ca == cb: return "Same"
+            elif ca < cb: return "Next"
+            else: return "Previous"
+        except:
+            pass
+        return "Undefined"
+
     def get_pages(self, id, cid):
         if id not in self.cache:
             self.get_chapters(id)
+        prev = None
         next = None
         for i in range(0, len(self.cache[id]['chapter_list'])):
             if cid == self.cache[id]['chapter_list'][i]['id']:
-                return (None if (i + 1 >= len(self.cache[id]['chapter_list'])) else self.cache[id]['chapter_list'][i+1]), self.cache[id]['chapter_list'][i], next
-            next = self.cache[id]['chapter_list'][i]
+                for j in range(i-1, -1, -1):
+                    if self.cmp_chapter(self.cache[id]['chapter_list'][i], self.cache[id]['chapter_list'][j]) == "Next":
+                        next = self.cache[id]['chapter_list'][j]
+                        break
+                for j in range(i+1, len(self.cache[id]['chapter_list'])):
+                    if self.cmp_chapter(self.cache[id]['chapter_list'][i], self.cache[id]['chapter_list'][j]) == "Previous":
+                        prev = self.cache[id]['chapter_list'][j]
+                        break
+                return prev, self.cache[id]['chapter_list'][i], next
         return None, None, None
 
     def get_tags(self):
@@ -329,6 +357,9 @@ class Mangadex():
                 footer += f'<a href="/mangaseries?id={id}">Back</a>'
                 if next is not None: footer += f' # <a href="/mangachapter?id={id}&chapter={next["id"]}">Next</a>'
                 if ch["attributes"]["title"] != "" and ch["attributes"]["title"] is not None: footer += "<br><b>" + ch["attributes"]["title"] + "</b>"
+                footer += "<br>"
+                if ch["attributes"]["volume"] is not None: footer += f'Vol.{ch["attributes"]["volume"]} '
+                if ch["attributes"]["chapter"] is not None: footer += f'Chapter {ch["attributes"]["chapter"]} '
                 footer += "<br>"
                 for p in pl:
                     if p == page: footer += f"<b>{p+1}</b>"
