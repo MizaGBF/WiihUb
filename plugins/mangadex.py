@@ -414,4 +414,4 @@ class Mangadex():
         return html
 
     def get_manual(self):
-        return "<b>Mangadex Browser plugin</b><br>You'll find two modifiable values in config.json:<br>* \"mangadex_exclude_languages\" lets you exclude mangas from a certain language (for example, jp to remove all japanese mangas.<br>* \"mangadex_languages\" lets you set what languages you want to read your chapters in.<br><br>Both are array so the value must be for example [\"jp\",\"en\"]"
+        return "<b>Mangadex Browser plugin</b><br>You'll find two modifiable values in config.json:<br>* \"mangadex_exclude_languages\" lets you exclude mangas from a certain language (for example, jp to remove all japanese mangas). It's not applied to search results.<br>* \"mangadex_languages\" lets you set what languages you want to read your chapters in.<br><br>Both are array so the value must be for example [\"jp\",\"en\"]"
