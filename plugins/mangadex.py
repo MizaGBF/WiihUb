@@ -9,6 +9,7 @@ class Mangadex():
     def __init__(self, server):
         self.server = server
         self.api = "https://api.mangadex.org"
+        self.cookies = self.server.data.get("mangadex_cookie", {})
         self.lang_filter = self.server.data.get("mangadex_languages", ['en'])
         self.lang_excluded = self.server.data.get("mangadex_exclude_languages", [])
         self.cache = {}
@@ -18,6 +19,7 @@ class Mangadex():
         self.page_limit = 40
 
     def stop(self):
+        self.server.data["mangadex_cookie"] = self.cookies
         self.server.data["mangadex_languages"] = self.lang_filter
         self.server.data["mangadex_exclude_languages"] = self.lang_excluded
 
