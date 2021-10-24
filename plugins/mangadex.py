@@ -146,7 +146,7 @@ class Mangadex():
                     for i in range(0, len(self.cache[id]['chapter_list'])):
                         if c["attributes"]["volume"] is None:
                             if self.cache[id]['chapter_list'][i]["attributes"]["volume"] is None:
-                                if float(c["attributes"]["chapter"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["chapter"]):
+                                if c["attributes"]["chapter"] is not None and (self.cache[id]['chapter_list'][i]["attributes"]["chapter"] is None or float(c["attributes"]["chapter"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["chapter"])):
                                     self.cache[id]['chapter_list'].insert(i, c)
                                     issorted = True
                                     break
@@ -194,7 +194,7 @@ class Mangadex():
             self.get_chapters(id)
         prev = None
         next = None
-        for i in range(0, len(self.cache[id]['chapter_list'])):
+        for i in range(0, len(self.cache.get(id, {'chapter_list':[]})['chapter_list'])):
             if cid == self.cache[id]['chapter_list'][i]['id']:
                 for j in range(i-1, -1, -1):
                     if self.cmp_chapter(self.cache[id]['chapter_list'][i], self.cache[id]['chapter_list'][j]) == "Next":
