@@ -16,6 +16,7 @@ class Streamlink():
         self.streamlink_current  = None
         self.notification = None
         self.quals = {"720p": "Wii U TV", "720p60": "Wii U TV (60 fps)", "480p": "Wii U Gamepad", "360p": "N3DS", "best": "Best", "worst": "Worst", "audio_only":"Audio Only", "1080p": "1080p", "1080p60": "1080p (60 fps)"}
+        self.vlc = None
 
     def stop(self):
         self.server.data["streamlink_stream"] = self.last_stream
@@ -42,11 +43,15 @@ class Streamlink():
         html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
         html += '<div class="elem"><a href="/">Back</a><br>'
         if self.streamlink is not None:
-            html += '<a href="{}">Watch {}</a><br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
+            html += '<a href="{}">Watch {}</a>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
+            vlc_path = self.server.data.get("vlc_path", None)
+            if vlc_path is not None:
+                html += '<br><a href="/streamlinkad">Try to clear ads and watch</a>'
+            html += '<br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'
+        html += "</div>"
         if self.notification is not None:
             html += '<div class="elem">{}</div>'.format(self.notification)
             self.notification = None
-        html += "</div>"
         html += '<div class="elem"><b>History</b><br>'
         for h in self.history:
             html += '<a href="/twitch?stream={}&qual={}">{} ({})</a><br>'.format(h[0], h[1], h[0], self.quals.get(h[1], h[1]))
@@ -107,6 +112,23 @@ class Streamlink():
                 self.server.printex(e)
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
                 return True
+        elif path.startswith('/streamlinkad'):
+            try:
+                host_address = handler.headers.get('Host')
+                vlc_path = self.server.data.get("vlc_path", None)
+                self.kill_process(self.vlc)
+                self.vlc = subprocess.Popen([vlc_path, 'http://{}:{}'.format(host_address.split(":")[0], self.streamlink_port), '--no-audio'])
+                time.sleep(15)
+                self.kill_process(self.vlc)
+                self.notification = "Done"
+                handler.answer(303, {'Location': self.streamlink_url})
+            except Exception as e:
+                print("Can't open vlc")
+                self.server.printex(e)
+                self.notification = "Can't open vlc"
+                handler.answer(303, {'Location': 'http://{}'.format(host_address)})
+                return True
+            return True
         elif path.startswith('/streamlinkhistory'):
             handler.answer(200, {'Content-type': 'text/html'}, self.get_history().encode('utf-8'))
             return True
@@ -179,7 +201,11 @@ class Streamlink():
             f'<option value="{self.last_quality}" selected="selected">Last used: {self.last_quality}</option>'
         html += '</select><br><input type="submit" value="Start"></form><a href="streamlinkhistory">History</a><br><a href="streamlinkadvanced">Advanced</a><br>'
         if self.streamlink is not None:
-            html += '<a href="{}">Watch {}</a><br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
+            html += '<a href="{}">Watch {}</a>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
+            vlc_path = self.server.data.get("vlc_path", None)
+            if vlc_path is not None:
+                html += '<br><a href="/streamlinkad">Try to clear ads and watch</a>'
+            html += '<br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'
         if self.notification is not None:
             html += "{}<br>".format(self.notification)
             self.notification = None

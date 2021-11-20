@@ -107,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v3.4.5"
+        self.version = "v3.4.6"
         print("Starting...\n")
         try:
             with open('config.json', 'rb') as f:
