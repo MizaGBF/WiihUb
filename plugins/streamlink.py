@@ -71,7 +71,7 @@ class Streamlink():
     def add_to_history(self, user, qual):
         self.remove_from_history(user)
         self.history = [[user, qual]] + self.history
-        if len(self.history) > 50: self.history = self.history[:50]
+        if len(self.history) > 100: self.history = self.history[:100]
 
     def process_get(self, handler, path):
         if path.startswith('/twitch?'):
@@ -79,7 +79,7 @@ class Streamlink():
             options = self.server.getOptions(path, 'twitch')
             try:
                 if 'stream' not in options: raise Exception()
-                tmp = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-continuous-http", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('qual', '720p60')])# , stdout=subprocess.PIPE)
+                tmp = subprocess.Popen([self.streamlink_path, "--twitch-disable-ads", "--twitch-disable-hosting", "--player-continuous-http", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('qual', '720p60')])# , stdout=subprocess.PIPE)
                 time.sleep(8)
                 if tmp.poll() is None:
                     print("Stream started")
@@ -118,7 +118,7 @@ class Streamlink():
                 vlc_path = self.server.data.get("vlc_path", None)
                 self.kill_process(self.vlc)
                 self.vlc = subprocess.Popen([vlc_path, 'http://{}:{}'.format(host_address.split(":")[0], self.streamlink_port), '--no-audio'])
-                time.sleep(15)
+                time.sleep(50)
                 self.kill_process(self.vlc)
                 self.notification = "Done"
                 handler.answer(303, {'Location': self.streamlink_url})
