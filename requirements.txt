@@ -1,5 +1,5 @@
-tweepy==4.1.0
-EbookLib==0.17.1
-beautifulsoup4==4.10.0
-requests==2.26.0
-pillow==8.4.0
+tweepy>=4.4.0
+EbookLib>=0.17.1
+beautifulsoup4>=4.10.0
+requests>=2.26.0
+pillow>=8.4.0

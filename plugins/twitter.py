@@ -50,7 +50,7 @@ class Twitter():
         elif path.startswith('/twittersearch?'):
             options = self.server.getOptions(path, 'twittersearch')
             try:
-                handler.answer(200, {'Content-type': 'text/html'}, self.getQuery(urllib.parse.unquote(options['query']), options.get('token', None)).encode('utf-8'))
+                handler.answer(200, {'Content-type': 'text/html'}, self.getQuery(urllib.parse.unquote(options['query'].replace('+', ' ')), options.get('token', None)).encode('utf-8'))
                 return True
             except Exception as e:
                 print("Twitter search error")
@@ -265,10 +265,14 @@ class Twitter():
         html += '<br>' + page_footer
         html += '</div>'
 
-        for tweet in tweets.data:
-            html += '<div class="elem">{}</div>'.format(self.tweetToHTML(tweet, media, references))
+        if tweets.data is None:
+            html += '<div class="elem">No results found</div>'
+        else:
+            for tweet in tweets.data:
+                html += '<div class="elem">{}</div>'.format(self.tweetToHTML(tweet, media, references))
         html += '</div>'
-        html += '<div class="elem">' + page_footer + '</div>'
+        if page_footer != "":
+            html += '<div class="elem">' + page_footer + '</div>'
         html += '</body>'
         return html
 
