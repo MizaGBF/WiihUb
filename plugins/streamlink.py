@@ -46,7 +46,7 @@ class Streamlink():
             html += '<a href="{}">Watch {}</a>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
             vlc_path = self.server.data.get("vlc_path", None)
             if vlc_path is not None:
-                html += '<br><a href="/streamlinkad">Try to clear ads and watch</a>'
+                html += '<br><a href="/streamlinkads">Try to clear ads and watch</a>'
             html += '<br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'
         html += "</div>"
         if self.notification is not None:
@@ -112,7 +112,7 @@ class Streamlink():
                 self.server.printex(e)
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
                 return True
-        elif path.startswith('/streamlinkad'):
+        elif path.startswith('/streamlinkads'):
             try:
                 host_address = handler.headers.get('Host')
                 vlc_path = self.server.data.get("vlc_path", None)
@@ -151,7 +151,7 @@ class Streamlink():
                 params = [self.streamlink_path]
                 o = urllib.parse.unquote(options.get('options', '').replace('+', ' '))
                 if o != '': params += o.split(' ')
-                params += ["--hls-live-edge", "1", "--hls-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "{}".format(urllib.parse.unquote(options['url'])), options.get('qual', 'best')]
+                params += ["--player-external-http", "--player-external-http-port", str(self.streamlink_port), "{}".format(urllib.parse.unquote(options['url'])), options.get('qual', 'best')]
                 tmp = subprocess.Popen(params)
                 time.sleep(8)
                 print("Checking if stream is available...")
@@ -204,7 +204,7 @@ class Streamlink():
             html += '<a href="{}">Watch {}</a>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
             vlc_path = self.server.data.get("vlc_path", None)
             if vlc_path is not None:
-                html += '<br><a href="/streamlinkad">Try to clear ads and watch</a>'
+                html += '<br><a href="/streamlinkads">Try to clear ads and watch</a>'
             html += '<br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'
         if self.notification is not None:
             html += "{}<br>".format(self.notification)
