@@ -120,8 +120,8 @@ class Streamlink():
                 self.vlc = subprocess.Popen([vlc_path, 'http://{}:{}'.format(host_address.split(":")[0], self.streamlink_port), '--no-audio'])
                 time.sleep(50)
                 self.kill_process(self.vlc)
-                self.notification = "Done"
-                handler.answer(303, {'Location': self.streamlink_url})
+                self.notification = "Done, wait a few minutes and try to watch the stream."
+                handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             except Exception as e:
                 print("Can't open vlc")
                 self.server.printex(e)
@@ -204,7 +204,7 @@ class Streamlink():
             html += '<a href="{}">Watch {}</a>'.format(self.streamlink_url, self.streamlink_current, self.streamlink_current)
             vlc_path = self.server.data.get("vlc_path", None)
             if vlc_path is not None:
-                html += '<br><a href="/streamlinkads">Try to clear ads and watch</a>'
+                html += '<br><a href="/streamlinkads">Try to clear ads</a>'
             html += '<br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'
         if self.notification is not None:
             html += "{}<br>".format(self.notification)

@@ -1,7 +1,9 @@
+import requests
+from urllib.parse import quote, unquote
 import tweepy
 import webbrowser
 import datetime
-import urllib.parse
+import threading
 
 class Twitter():
     def __init__(self, server):
@@ -11,6 +13,8 @@ class Twitter():
         self.client = None
         self.user_cache = {}
         self.token_cache = {}
+        self.img_cache = {}
+        self.lock = threading.Lock()
         self.bearer = self.server.data.get('twitter_bearer_token', None)
         try: self.client = tweepy.Client(bearer_token = self.bearer)
         except: pass
@@ -50,7 +54,7 @@ class Twitter():
         elif path.startswith('/twittersearch?'):
             options = self.server.getOptions(path, 'twittersearch')
             try:
-                handler.answer(200, {'Content-type': 'text/html'}, self.getQuery(urllib.parse.unquote(options['query'].replace('+', ' ')), options.get('token', None)).encode('utf-8'))
+                handler.answer(200, {'Content-type': 'text/html'}, self.getQuery(unquote(options['query'].replace('+', ' ')) + " -is:retweet", options.get('token', None)).encode('utf-8'))
                 return True
             except Exception as e:
                 print("Twitter search error")
@@ -94,7 +98,7 @@ class Twitter():
         elif path.startswith('/twitterkey?'):
             options = self.server.getOptions(path, 'twitterkey')
             try:
-                self.bearer = urllib.parse.unquote(options['key'])
+                self.bearer = unquote(options['key'])
                 try: self.client = tweepy.Client(bearer_token = self.bearer)
                 except: pass
                 self.notification += "Key Set Successfully"
@@ -102,6 +106,31 @@ class Twitter():
                 self.notification += "An error occured\n" + str(e)
                 self.server.printex(e)
             handler.answer(303, {'Location': 'http://{}'.format(host_address)})
+            return True
+        elif path.startswith('/twitterimg?'):
+            options = self.server.getOptions(path, 'twitterimg')
+            try:
+                url = unquote(options['url'])
+                if url in self.img_cache:
+                    raw = self.img_cache[url]
+                else:
+                    rep = requests.get(url, headers={'User-Agent':self.server.user_agent_common}, stream=True)
+                    if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
+                    raw = rep.raw.read()
+                    with self.lock:
+                        self.img_cache[url] = raw
+                        if len(self.img_cache) > 50:
+                            keys = list(self.img_cache.keys())[50:]
+                            imdata = {}
+                            for key in keys:
+                                imdata[key] = self.img_cache[key]
+                            self.img_cache = imdata
+                handler.answer(200, {'Content-type': 'image/jpg'}, self.img_cache[url])
+                return True
+            except Exception as e:
+                print("Failed to open image")
+                self.server.printex(e)
+                handler.answer(404, {})
             return True
         return False
 
@@ -255,12 +284,12 @@ class Twitter():
         html += '<div class="elem">'+self.get_interface()+'<a href="/">Back</a><br>'
         page_footer = ""
         if prev_token is None and token is not None:
-            page_footer += '<a href="/twittersearch?query={}">Previous</a>'.format(urllib.parse.quote(query))
+            page_footer += '<a href="/twittersearch?query={}">Previous</a>'.format(quote(query))
         elif prev_token is not None:
-            page_footer += '<a href="/twittersearch?query={}&token={}">Previous</a>'.format(urllib.parse.quote(query), prev_token)
+            page_footer += '<a href="/twittersearch?query={}&token={}">Previous</a>'.format(quote(query), prev_token)
         if next_token is not None and next_token != "None":
             if page_footer != "": page_footer += " # "
-            page_footer += '<a href="/twittersearch?query={}&token={}">Next</a>'.format(urllib.parse.quote(query), next_token)
+            page_footer += '<a href="/twittersearch?query={}&token={}">Next</a>'.format(quote(query), next_token)
         page_footer = '<div style="font-size:30px">' + page_footer + '</div>'
         html += '<br>' + page_footer
         html += '</div>'
@@ -294,11 +323,11 @@ class Twitter():
                         tweet += '<br>'
                         first = False
                     if media[k].type == 'photo':
-                        tweet += '<img src="{}">'.format(media[k].url)
+                        tweet += '<img src="/twitterimg?url={}">'.format(quote(media[k].url))
                     elif media[k].type == 'video':
-                        tweet += '<img src="{}">'.format(media[k].url)
+                        tweet += '<img src="/twitterimg?url={}">'.format(quote(media[k].url))
                     else:
-                        tweet += '<img src="{}">'.format(media[k].preview_image_url)
+                        tweet += '<img src="/twitterimg?url={}">'.format(quote(media[k].preview_image_url))
                 except:
                     pass
         except:

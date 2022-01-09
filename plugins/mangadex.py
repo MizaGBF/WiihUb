@@ -196,6 +196,12 @@ class Mangadex():
         next = None
         for i in range(0, len(self.cache.get(id, {'chapter_list':[]})['chapter_list'])):
             if cid == self.cache[id]['chapter_list'][i]['id']:
+                if 'data' not in self.cache[id]['chapter_list'][i]['attributes']:
+                    j = self.requestGet(f"{self.api}/at-home/server/{cid}").json()
+                    check = j.get('result', None)
+                    if check is None or check != 'ok': raise Exception(f"Failed to retrieve pages for chapter {cid} of series {id}")
+                    self.cache[id]['chapter_list'][i]['attributes']['data'] = j['chapter']['data']
+                    self.cache[id]['chapter_list'][i]['attributes']['hash'] = j['chapter']['hash']
                 for j in range(i-1, -1, -1):
                     if self.cmp_chapter(self.cache[id]['chapter_list'][i], self.cache[id]['chapter_list'][j]) == "Next":
                         next = self.cache[id]['chapter_list'][j]
@@ -343,7 +349,7 @@ class Mangadex():
                 cid = options['chapter']
                 page = int(options.get('page', 0))
                 prev, ch, next = self.get_pages(id, cid)
-                last = len(ch["attributes"]['data'])-1
+                last = len(ch['attributes']['data'])-1
                 pl = list(range(max(page-5, 0), min(page+6, last+1)))
                 for px in range(0, 1 + last // 10):
                     if px * 10 not in pl: pl.append(px*10)
