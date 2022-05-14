@@ -13,7 +13,7 @@ class VLC():
         self.folder = self.server.data.get("vlc_folder", "medias")
         self.path = self.server.data.get("vlc_path", "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe")
         if self.folder == "": self.folder = "videos"
-        if self.folder[-1] == "/": self.folder = self.folder[:-1]
+        if not self.folder.endswith('/') and not self.folder.endswith('\\'): self.folder += '/'
         self.vlc = None
         self.current = ""
 
@@ -44,7 +44,7 @@ class VLC():
         for m in fs:
             for e in format:
                 if m.endswith(e):
-                    html += '<a href="/play?file={}">{}</a><br>'.format(m, m[len(self.folder)+1:])
+                    html += '<a href="/play?file={}">{}</a><br>'.format(m[len(self.folder):], m[len(self.folder):])
                     break
         if len(fs) == 0: html += "No files found in the '{}' folder".format(self.folder)
         html += '</div>'
@@ -73,7 +73,7 @@ class VLC():
                     if mode == 0: modestr = "width=1280,height=720"
                     elif mode == 1: modestr = "width=1280"
                     elif mode == 2: modestr = "height=720"
-                    self.vlc = subprocess.Popen([self.path, urllib.parse.unquote(options['file']), '--no-sout-all', '--sout=#transcode{' + modestr + ',fps=30,vcodec=h264,vb=1200,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=128,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:8001/'])
+                    self.vlc = subprocess.Popen([self.path, self.folder + urllib.parse.unquote(options['file']), '--no-sout-all', '--sout=#transcode{' + modestr + ',fps=30,vcodec=h264,vb=1200,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=128,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:8001/'])
                     time.sleep(1)
                     self.current = options['file'] + str(mode)
                 issuefooter = '<div class="elem">Scaling Issue? Switch to another mode:<br>'

@@ -13,7 +13,8 @@ class N3DS():
         self.notification = None
         self.folder = self.server.data.get("3ds_folder", '')
         if self.folder == "": self.folder = "3ds"
-        if self.folder[-1] == "/": self.folder = self.folder[:-1]
+        if not self.folder.endswith('/') and not self.folder.endswith('\\'): self.folder += '/'
+        print(self.folder)
         self.cache = {}
         self.lock = threading.Lock()
 
@@ -22,13 +23,10 @@ class N3DS():
         pass
 
     def load_playlist(self, file):
-        with open(file, "r") as f:
+        with open(self.folder + file, "r") as f:
             lines = f.readlines()
             for i in range(len(lines)):
-                if not lines[i].startswith(self.folder):
-                    lines[i] = self.folder + '/' + lines[i]
-                if len(lines[i]) > 0 and lines[i][-1] == '\n':
-                    lines[i] = lines[i][:-1]
+                lines[i] = lines[i].replace('\r', '').replace('\n', '')
             return lines
 
     def get_media_list(self):
@@ -44,23 +42,23 @@ class N3DS():
         for m in fs:
             if m.endswith('.txt'):
                 try:
-                    files = self.load_playlist(m)
-                    for f in files: in_playlist.append(f.replace('\\', '/').split('/')[-1])
-                    html += '<a href="/3dsplay?file={}">Playlist: {}</a><br>'.format(m, m[len(self.folder)+1:-4])
+                    files = self.load_playlist(m[len(self.folder):])
+                    in_playlist = in_playlist + files
+                    html += '<a href="/3dsplay?file={}">Playlist: {}</a><br>'.format(m[len(self.folder):], m[len(self.folder):])
                 except:
                     pass
         for m in fs:
-            if m.endswith('.mp4') and m.replace('\\', '/').split('/')[-1] not in in_playlist:
-                html += '<a href="/3dsplay?file={}">{}</a><br>'.format(m, m[len(self.folder)+1:])
+            if m.endswith('.mp4') and m[len(self.folder):] not in in_playlist:
+                html += '<a href="/3dsplay?file={}">{}</a><br>'.format(m[len(self.folder):], m[len(self.folder):])
         if len(fs) == 0: html += "No files found in the '{}' folder".format(self.folder)
         html += '</div>'
         return html
 
     def open(self, file):
         if file in self.cache: return self.cache[file]
-        f = open(file, 'rb')
+        f = open(self.folder + file, 'rb')
         with self.lock:
-            self.cache[file] = [f, path.getsize(file)]
+            self.cache[file] = [f, path.getsize(self.folder + file)]
         return self.cache[file]
 
     def read(self, file, pos, chunksize=10485760):

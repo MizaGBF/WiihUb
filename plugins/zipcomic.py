@@ -14,7 +14,7 @@ class ZipComic():
         self.list_cache = {}
         self.lock = threading.Lock()
         self.folder = self.server.data.get("comic_path", "comics")
-        if not self.folder.endswith('\\'): self.folder += '\\'
+        if not self.folder.endswith('/') and not self.folder.endswith('\\'): self.folder += '/'
         self.notification = None
 
     def stop(self):
@@ -81,7 +81,7 @@ class ZipComic():
         for m in fs:
             for e in format:
                 if m.endswith(e):
-                    html += '<a href="/comicpage?archive={}">{}</a><br>'.format(urllib.parse.quote(m.replace(self.folder, "")), m.replace(self.folder, ""))
+                    html += '<a href="/comicpage?archive={}">{}</a><br>'.format(urllib.parse.quote(m[len(self.folder):]), m[len(self.folder):])
                     break
         if len(fs) == 0: html += "No files found in the '{}' folder".format(self.folder)
         html += '</div>'
