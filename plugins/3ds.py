@@ -106,7 +106,8 @@ class N3DS():
         elif path.startswith('/3dsstream?'):
             options = self.server.getOptions(path, '3dsstream')
             try:
-                current_size = self.open(urllib.parse.unquote(options['file']))[1]
+                fn = urllib.parse.unquote(options['file'])
+                current_size = self.open(fn)[1]
                 file_range = handler.headers.get('Range')
                 if file_range is None:
                     range_start = 0
@@ -124,7 +125,7 @@ class N3DS():
                     else:
                         data, pos = self.read(urllib.parse.unquote(options['file']), range_start, range_end-range_start)
                     content_range = 'bytes %s-%s/%s' % (range_start, pos-1, current_size)
-                    handler.answer((200 if (pos-range_start==current_size) else 206), {'Content-type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length':str(len(data)), 'Content-Range':content_range}, data)
+                    handler.answer((200 if (pos-range_start==current_size) else 206), {'Content-type': 'video/mp4' if fn.endswith('.mp4') else 'audio/mpeg', 'Accept-Ranges': 'bytes', 'Content-Length':str(len(data)), 'Content-Range':content_range}, data)
             except Exception as e:
                 print("Failed to stream media")
                 self.server.printex(e)

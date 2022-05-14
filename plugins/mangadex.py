@@ -1,7 +1,7 @@
 import requests
 from urllib.parse import quote, unquote
 import time
-from PIL import Image, ImageFont, ImageDraw
+from PIL import Image
 from io import BytesIO
 import threading
 
@@ -427,8 +427,8 @@ class Mangadex():
                     raw = self.compress(self.requestGetStream(url), width, height)
                     with self.lock:
                         self.imgcache[url] = raw
-                        if len(self.imgcache) > 200:
-                            keys = list(self.imgcache.keys())[150:]
+                        if len(self.imgcache) > 150:
+                            keys = list(self.imgcache.keys())[100:]
                             imdata = {}
                             for key in keys:
                                 imdata[key] = self.imgcache[key]

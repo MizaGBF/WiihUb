@@ -424,10 +424,11 @@ class Sadpanda():
                     data = self.page_cache[url]
                 else:
                     data = self.loadImageFile(url)
-                    if len(self.page_cache) >= 15:
+                    if len(self.page_cache) >= 50:
                         keys = list(self.page_cache.keys())
-                        for i in range(0, 9):
+                        for i in range(0, len(keys)):
                             self.page_cache.pop(keys[i])
+                            if i >= 40: break
                     self.page_cache[url] = data
                 ext = url.split('.')[-1]
                 handler.answer(200, {'Content-type': 'image/' + ext}, data)
