@@ -14,7 +14,6 @@ class N3DS():
         self.folder = self.server.data.get("3ds_folder", '')
         if self.folder == "": self.folder = "3ds"
         if not self.folder.endswith('/') and not self.folder.endswith('\\'): self.folder += '/'
-        print(self.folder)
         self.cache = {}
         self.lock = threading.Lock()
 
