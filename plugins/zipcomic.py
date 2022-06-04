@@ -71,7 +71,7 @@ class ZipComic():
     def get_zip_list(self):
         try: fs = glob.glob(self.folder + '/**/*', recursive=True)
         except: fs = []
-        format = ['.zip']
+        format = ['.zip', '.cbz']
         html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style><div>'
         html += '<div class="elem"><a href="/">Back</a></div>'
         if self.notification is not None:
