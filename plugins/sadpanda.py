@@ -100,12 +100,14 @@ class Sadpanda():
         else: data = self.requestPanda(url + "?page={}&f_search={}".format(page, search))
         return data
 
-    def loadList(self, search=None, page=None, watched=False):
+    def loadList(self, search=None, page=None, watched=False, popular=False):
         try:
             url = "https://exhentai.org/"
-            if watched: url += "watched"
+            if popular: url += "popular"
+            elif watched: url += "watched"
             try:
-                if search is None and page is None: data = self.requestPandaText(url)
+                if popular: data = self.requestPandaText(url)
+                elif search is None and page is None: data = self.requestPandaText(url)
                 elif page is None: data = self.requestPandaText(url + "?f_search={}".format(search))
                 elif search is None: data = self.requestPandaText(url + "?page={}".format(page))
                 else: data = self.requestPandaText(url + "?page={}&f_search={}".format(page, search))
@@ -149,41 +151,45 @@ class Sadpanda():
             keys = list(self.cache.keys())
             for i in range(0, 10):
                 self.cache.pop(keys[i])
-        ids = []
+        ids = [[]]
         imgs = {}
         res = []
         for u, im in urls:
             i = self.urlToIds(u)
             if i is not None:
                 if i[0] not in self.cache:
-                    ids.append(i)
+                    ids[-1].append(i)
                     imgs[i[0]] = im
+                    if len(ids[-1]) >= 25: ids.append([])
                 elif not isinstance(self.cache[i[0]].get('thumbnail', None), bytes):
                     self.cache[i[0]]['thumbnail'] = im
                 res.append(i[0])
-        if len(ids) > 0:
-            try:
-                r = requests.post('https://api.e-hentai.org/api.php', headers={'User-Agent':self.server.user_agent_common}, json={"method": "gdata","gidlist": ids,"namespace": 1})
-                data = r.json()
-                for m in data['gmetadata']:
-                    if 'error' not in m:
-                        self.cache[m['gid']] = m
-                        self.cache[m['gid']]['pages'] = {}
-                        if dlThumb:
-                            with self.lock:
-                                try:
-                                    data = self.loadImageFile(imgs[m['gid']])
-                                    if data is not None:
-                                        self.cache[m['gid']]['thumbnail'] = data
-                                    else:
+        for il in ids:
+            if len(il) > 0:
+                try:
+                    r = requests.post('https://api.e-hentai.org/api.php', headers={'User-Agent':self.server.user_agent_common}, json={"method": "gdata","gidlist": il,"namespace": 1})
+                    data = r.json()
+                    for m in data['gmetadata']:
+                        if 'error' not in m:
+                            self.cache[m['gid']] = m
+                            self.cache[m['gid']]['pages'] = {}
+                            if dlThumb:
+                                with self.lock:
+                                    try:
+                                        data = self.loadImageFile(imgs[m['gid']])
+                                        if data is not None:
+                                            self.cache[m['gid']]['thumbnail'] = data
+                                        else:
+                                            self.cache[m['gid']]['thumbnail'] = imgs[m['gid']]
+                                        time.sleep(0.1)
+                                    except:
                                         self.cache[m['gid']]['thumbnail'] = imgs[m['gid']]
-                                    time.sleep(0.1)
-                                except:
-                                    self.cache[m['gid']]['thumbnail'] = imgs[m['gid']]
-                        else:
-                            self.cache[m['gid']]['thumbnail'] = imgs[m['gid']]
-            except:
-                pass
+                            else:
+                                self.cache[m['gid']]['thumbnail'] = imgs[m['gid']]
+                except:
+                    pass
+                if il is not ids[-1] and not dlThumb:
+                    time.sleep(1)
         return res
 
     def retrieveGallery(self, url):
@@ -287,7 +293,7 @@ class Sadpanda():
                 search = options.get('search', None)
                 if search == "": search = None
                 page = options.get('page', None)
-                ll = self.loadList(search, page, ('watched' in options))
+                ll = self.loadList(search, page, ('watched' in options), ('popular' in options))
                 l = self.loadGalleries(ll)
 
                 if 'watched' in options:
@@ -300,20 +306,24 @@ class Sadpanda():
                     hidden = ''
 
                 html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;}</style>'
-                html += '<div class="elem"><form action="/panda"><legend><b>Sadpanda Browser</b></legend>{}<label for="search">Search </label><input type="text" id="search" name="search" value="{}"><br><input type="submit" value="Search"></form>{}</div>'.format(hidden, "" if search is None else unquote(search.replace('+', ' ')).replace("'", '&#39;').replace('"', '&#34;'), back)
+                if 'popular' in options:
+                    html += '<div class="elem"><a href="/">Back</a></div>'
+                    footer = ""
+                else:
+                    html += '<div class="elem"><form action="/panda"><legend><b>Sadpanda Browser</b></legend>{}<label for="search">Search </label><input type="text" id="search" name="search" value="{}"><br><input type="submit" value="Search"></form>{}</div>'.format(hidden, "" if search is None else unquote(search.replace('+', ' ')).replace("'", '&#39;').replace('"', '&#34;'), back)
 
-                if page is None: page = "0"
-                if search is None: search = ""
-                page_list = [0]
-                for i in range(max(0, int(page)-5), int(page)+5):
-                    if i not in page_list: page_list.append(i)
-                footer = ""
-                footer += '<div class="elem" style="font-size: 150%;">'
-                for p in page_list:
-                    if p == int(page): footer += '<b>{}</b>'.format(page)
-                    else: footer += '<a href="{}search={}&page={}">{}</a>'.format(panda, search, p, p)
-                    if p is not page_list[-1]: footer += " # "
-                footer += '</div>'
+                    if page is None: page = "0"
+                    if search is None: search = ""
+                    page_list = [0]
+                    for i in range(max(0, int(page)-5), int(page)+5):
+                        if i not in page_list: page_list.append(i)
+                    footer = ""
+                    footer += '<div class="elem" style="font-size: 150%;">'
+                    for p in page_list:
+                        if p == int(page): footer += '<b>{}</b>'.format(page)
+                        else: footer += '<a href="{}search={}&page={}">{}</a>'.format(panda, search, p, p)
+                        if p is not page_list[-1]: footer += " # "
+                    footer += '</div>'
 
                 html += footer
                 for id in l:
@@ -464,7 +474,7 @@ class Sadpanda():
         if not self.running:
             html = '<b>Sadpanda Browser</b><br>Not logged in<br><a href="/pandareset">Login</a>'
         else:
-            html = '<b>Sadpanda Browser</b><br><a href="/panda?">Home</a><br><a href="/panda?watched=1">Watched</a><br><a href="/pandareset">Clear Cookies</a>'
+            html = '<b>Sadpanda Browser</b><br><a href="/panda?">Home</a><br><a href="/panda?watched=1">Watched</a><br><a href="/panda?popular=1">Popular</a><br><a href="/pandareset">Clear Cookies</a>'
             if self.notification is not None:
                 html += "<br>{}".format(self.notification)
                 self.notification = None

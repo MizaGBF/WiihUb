@@ -1,6 +1,7 @@
 from xml.sax import saxutils as su
 import re
 import requests
+from urllib.parse import quote, unquote
 
 class FourChan():
     def __init__(self, server):
@@ -76,7 +77,7 @@ class FourChan():
         return False
 
     def get_interface(self):
-        html = '<form action="/4chan"><legend><b>4chan Thread Search</b></legend><label for="board">Board </label><input type="text" id="board" name="board" value="{}"><br><label for="search">Search </label><input type="text" id="search" name="search" value="{}"><br><input type="submit" value="Search"></form>'.format(self.chan_board, self.chan_search)
+        html = '<form action="/4chan"><legend><b>4chan Thread Search</b></legend><label for="board">Board </label><input type="text" id="board" name="board" value="{}"><br><label for="search">Search </label><input type="text" id="search" name="search" value="{}"><br><input type="submit" value="Search"></form>'.format(self.chan_board, unquote(self.chan_search).replace('+', ' '))
         if self.search_results is not None:
             html += "{}<br>".format(self.search_results)
         return html
