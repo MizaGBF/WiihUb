@@ -126,8 +126,8 @@ class Sadpanda():
     def loadGalleries(self, urls, dlThumb=False):
         if len(list(self.cache.keys())) > 400:
             keys = list(self.cache.keys())
-            for i in range(0, 10):
-                self.cache.pop(keys[i])
+            for i in range(0, 50):
+                self.cache.pop(keys[i], None)
         ids = [[]]
         res = []
         for u, im in urls:
@@ -358,6 +358,11 @@ class Sadpanda():
             return True
         elif path.startswith('/pandapage/'):
             try:
+                with self.page_lock:
+                    old = self.page_time
+                    self.page_time = time.time()
+                    diff = self.page_time - old
+                    if diff < 3: time.sleep(diff + 1)
                 pic = self.getPage('https://exhentai.org/s/' + path[len('/pandapage/'):])
                 current = int(path.split('-')[-1])
                 tk = path.split('/')
@@ -407,12 +412,12 @@ class Sadpanda():
                 if url in self.page_cache:
                     data = self.page_cache[url]
                 else:
-                    data = self.loadImageFile(url)
-                    if len(self.page_cache) >= 50:
+                    if len(self.page_cache) >= 100:
                         keys = list(self.page_cache.keys())
                         for i in range(0, len(keys)):
-                            self.page_cache.pop(keys[i])
-                            if i >= 40: break
+                            self.page_cache.pop(keys[i], None)
+                            if i >= 50: break
+                    data = self.loadImageFile(url)
                     self.page_cache[url] = data
                 ext = url.split('.')[-1]
                 handler.answer(200, {'Content-type': 'image/' + ext}, data)
