@@ -12,47 +12,20 @@ class Sadpanda():
         self.cache = {}
         self.cookies = self.server.data.get("panda_cookie", {})
         self.credentials = self.server.data.get("panda_login", ["login", "password"])
-        self.enable_preload = self.server.data.get("panda_enable_preload", False)
         self.running = self.login()
         self.lock = threading.Lock()
         self.page_cache = {}
-        self.stop_preload = False
-        self.th = threading.Thread(target=self.preload)
-        if self.running and self.enable_preload:
-            self.th.setDaemon(True)
-            self.th.start()
+        self.search_time = time.time()
+        self.page_time = time.time()
+        self.search_lock = threading.Lock()
+        self.page_lock = threading.Lock()
+        self.page_count = 0
 
     def stop(self):
-        self.stop_preload = False
         try: self.th.join(timeout=5)
         except: pass
         self.server.data["panda_cookie"] = self.cookies
         self.server.data["panda_login"] = self.credentials
-        self.server.data["panda_enable_preload"] = self.enable_preload
-
-    def preload(self):
-        if self.stop_preload or not self.server.is_running: return
-        time.sleep(60)
-        for i in range(0, 10):
-            if self.stop_preload or not self.server.is_running: return
-            x = i % 3
-            y = i // 3
-            if y == 0:
-                search = None
-                watched = False
-            elif y == 1:
-                search = "English"
-                watched = False
-            elif y == 2:
-                search = None
-                watched = True
-            else:
-                continue
-            ll = self.loadList(search, str(x), watched)
-            self.loadGalleries(ll, True)
-        for gid in self.cache:
-            if self.stop_preload or not self.server.is_running: return
-            self.loadThumbnail(gid)
 
     def requestPandaText(self, url, headers={}):
         headers["Cookie"] = self.buildCookie(self.cookies)
@@ -102,6 +75,12 @@ class Sadpanda():
 
     def loadList(self, search=None, page=None, watched=False, popular=False):
         try:
+            with self.search_lock:
+                now = time.time()
+                diff = now - self.search_time
+                if diff < 30:
+                    time.sleep(30 - diff + 0.1)
+                self.search_time = now
             url = "https://exhentai.org/"
             if popular: url += "popular"
             elif watched: url += "watched"
@@ -149,20 +128,16 @@ class Sadpanda():
     def loadGalleries(self, urls, dlThumb=False):
         if len(list(self.cache.keys())) > 400:
             keys = list(self.cache.keys())
-            for i in range(0, 10):
-                self.cache.pop(keys[i])
+            for i in range(0, 50):
+                self.cache.pop(keys[i], None)
         ids = [[]]
-        imgs = {}
         res = []
         for u, im in urls:
             i = self.urlToIds(u)
             if i is not None:
                 if i[0] not in self.cache:
                     ids[-1].append(i)
-                    imgs[i[0]] = im
                     if len(ids[-1]) >= 25: ids.append([])
-                elif not isinstance(self.cache[i[0]].get('thumbnail', None), bytes):
-                    self.cache[i[0]]['thumbnail'] = im
                 res.append(i[0])
         for il in ids:
             if len(il) > 0:
@@ -173,43 +148,45 @@ class Sadpanda():
                         if 'error' not in m:
                             self.cache[m['gid']] = m
                             self.cache[m['gid']]['pages'] = {}
+                            self.cache[m['gid']]['thumbnail'] = self.cache[m['gid']].pop('thumb', None)
                             if dlThumb:
                                 with self.lock:
                                     try:
-                                        data = self.loadImageFile(imgs[m['gid']])
+                                        data = self.loadImageFile(self.cache[m['gid']]['thumbnail'])
                                         if data is not None:
                                             self.cache[m['gid']]['thumbnail'] = data
-                                        else:
-                                            self.cache[m['gid']]['thumbnail'] = imgs[m['gid']]
-                                        time.sleep(0.1)
+                                        time.sleep(0.3)
                                     except:
-                                        self.cache[m['gid']]['thumbnail'] = imgs[m['gid']]
-                            else:
-                                self.cache[m['gid']]['thumbnail'] = imgs[m['gid']]
+                                        pass
                 except:
                     pass
                 if il is not ids[-1] and not dlThumb:
                     time.sleep(1)
         return res
 
-    def retrieveGallery(self, url):
+    def retrieveGallery(self, url, page = 0):
         ids = self.urlToIds(url)
         if ids[0] not in self.cache: self.loadGalleries([[url, None]])
         if ids[0] not in self.cache: raise Exception() # placeholder
-        pi = 0
-        while True:
-            data = self.requestPandaText(url + '/?p={}'.format(pi))
-            soup = BeautifulSoup(data, 'html.parser')
-            div = soup.find_all("div", class_="gdtm")
-            res = []
-            for e in div:
-                a = e.findChildren("a", recursive=True)[0]
-                l = a.attrs['href']
-                page = l.split('-')[-1]
-                self.cache[ids[0]]['pages'][page] = l
-            pi += 1
-            if len(self.cache[ids[0]]['pages']) >= int(self.cache[ids[0]]['filecount']):
-                break
+        with self.page_lock:
+            now = time.time()
+            diff = now - self.page_time
+            if diff < 5:
+                time.sleep(5 - diff + 0.1)
+            self.page_time = now
+        data = self.requestPandaText(url + '/?p={}'.format(page))
+        soup = BeautifulSoup(data, 'html.parser')
+        div = soup.find_all("div", class_="gdtm")
+        res = []
+        count = 0
+        for e in div:
+            a = e.findChildren("a", recursive=True)[0]
+            l = a.attrs['href']
+            pg = l.split('-')[-1]
+            self.cache[ids[0]]['pages'][pg] = l
+            count += 1
+        self.page_count = max(self.page_count, count)
+        return self.cache[ids[0]]
 
     def getPage(self, url):
         parts = url.split('-')
@@ -264,7 +241,7 @@ class Sadpanda():
         return msg
 
     def loadImageFile(self, url, panda_headers={}):
-        if url.startswith('https://exhentai.org/'):
+        if url.startswith('https://exhentai.org/') or url.startswith('https://ehgt.org/'):
             data = self.requestPandaRaw(url, headers=panda_headers)
         else:
             rep = requests.get(url, headers={'User-Agent':self.server.user_agent_common}, stream=True)
@@ -285,7 +262,6 @@ class Sadpanda():
 
     def process_get(self, handler, path):
         if not self.running: return False
-        if not self.stop_preload and path.startswith('/panda'): self.stop_preload = True
         host_address = handler.headers.get('Host')
         if path.startswith('/panda?'):
             options = self.server.getOptions(path, 'panda')
@@ -384,10 +360,26 @@ class Sadpanda():
             return True
         elif path.startswith('/pandapage/'):
             try:
-                pic = self.getPage('https://exhentai.org/s/' + path[len('/pandapage/'):])
-                current = int(path.split('-')[-1])
-                tk = path.split('/')
-                m = self.cache[int(tk[-1].split('-')[0])]
+                options = self.server.getOptions(path, 'pandapage/')
+                path = path.split('?')[0]
+                page_index = options.get('page', None)
+                gurl = options.get('gurl', None)
+                if page_index is None:
+                    page_index = int(path.split('-')[-1])
+                    purl = 'https://exhentai.org/s/' + path[len('/pandapage/'):]
+                    m = self.cache[int(path.split('/')[-1].split('-')[0])]
+                else:
+                    page_index = int(page_index)
+                    m = self.retrieveGallery('https://exhentai.org/g/' + gurl, page_index // self.page_count)
+                    purl = m['pages'][str(page_index)]
+                with self.page_lock:
+                    now = time.time()
+                    diff = now - self.page_time
+                    if diff < 5:
+                        time.sleep(5 - diff + 0.1)
+                    self.page_time = now
+                pic = self.getPage(purl)
+                current = page_index
                 if current >= int(m['filecount']): next_p = int(m['filecount'])
                 else: next_p = current + 1
                 html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;padding: 10px 10px 10px 10px;font-size: 150%;}</style>'
@@ -402,22 +394,20 @@ class Sadpanda():
                     if px * 10 not in pl: pl = pl + [px*10]
                 if int(m['filecount']) not in pl: pl = pl + [int(m['filecount'])]
                 pl.sort()
+                footer = ""
                 for p in pl:
-                    if p == current: html += "<b>{}</b>".format(p)
-                    else: html += '<a href="/pandapage/{}">{}</a>'.format('/'.join(m['pages'][str(p)].split('/')[-2:]), p)
-                    if p != pl[-1]: html += ' # '
-                html += "</div>"
+                    if p == current: footer += "<b>{}</b>".format(p)
+                    elif str(p) in m['pages']: footer += '<a href="/pandapage/{}">{}</a>'.format('/'.join(m['pages'][str(p)].split('/')[-2:]), p)
+                    else: footer += '<a href="/pandapage/?page={}&gurl={}/{}">{}</a>'.format(p-1, m['gid'], m['token'], p)
+                    if p != pl[-1]: footer += ' # '
+                html += footer + "</div>"
                 html += '<div>'
                 if str(next_p) in m['pages']: html += '<a href="/pandapage/{}"><img src="/pandaimg?file={}"></a>'.format('/'.join(m['pages'][str(next_p)].split('/')[-2:]), pic)
                 else: html += '<a href="/pandagallery/{}/{}"><img src="/pandaimg?file={}"></a>'.format(m['gid'], m['token'], pic)
                 html += "</div>"
                 html += '<div class="elem">'
                 html += "Page {} / {}<br>".format(current, m['filecount'])
-                for p in pl:
-                    if p == current: html += "<b>{}</b>".format(p)
-                    else: html += "<a href=/pandapage/{}>{}</a>".format('/'.join(m['pages'][str(p)].split('/')[-2:]), p)
-                    if p != pl[-1]: html += ' # '
-                html += '</div></body>'
+                html += footer + '</div></body>'
 
                 handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
             except Exception as e:
@@ -433,12 +423,12 @@ class Sadpanda():
                 if url in self.page_cache:
                     data = self.page_cache[url]
                 else:
-                    data = self.loadImageFile(url)
-                    if len(self.page_cache) >= 50:
+                    if len(self.page_cache) >= 100:
                         keys = list(self.page_cache.keys())
                         for i in range(0, len(keys)):
-                            self.page_cache.pop(keys[i])
-                            if i >= 40: break
+                            self.page_cache.pop(keys[i], None)
+                            if i >= 50: break
+                    data = self.loadImageFile(url)
                     self.page_cache[url] = data
                 ext = url.split('.')[-1]
                 handler.answer(200, {'Content-type': 'image/' + ext}, data)
