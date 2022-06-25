@@ -168,38 +168,47 @@ class Sadpanda():
         ids = self.urlToIds(url)
         if ids[0] not in self.cache: self.loadGalleries([[url, None]])
         if ids[0] not in self.cache: raise Exception() # placeholder
-        with self.page_lock:
-            now = time.time()
-            diff = now - self.page_time
-            if diff < 5:
-                time.sleep(5 - diff + 0.1)
-            self.page_time = now
-        data = self.requestPandaText(url + '/?p={}'.format(page))
-        soup = BeautifulSoup(data, 'html.parser')
-        div = soup.find_all("div", class_="gdtm")
-        res = []
-        count = 0
-        for e in div:
-            a = e.findChildren("a", recursive=True)[0]
-            l = a.attrs['href']
-            pg = l.split('-')[-1]
-            self.cache[ids[0]]['pages'][pg] = l
-            count += 1
-        self.page_count = max(self.page_count, count)
+        if self.page_count == 0 or str(1 + page * self.page_count) not in self.cache[ids[0]]['pages']:
+            with self.page_lock:
+                now = time.time()
+                diff = now - self.page_time
+                if diff < 5:
+                    time.sleep(5 - diff + 0.1)
+                self.page_time = now
+            data = self.requestPandaText(url + '/?p={}'.format(page))
+            soup = BeautifulSoup(data, 'html.parser')
+            div = soup.find_all("div", class_="gdtm")
+            res = []
+            count = 0
+            for e in div:
+                a = e.findChildren("a", recursive=True)[0]
+                l = a.attrs['href']
+                pg = l.split('-')[-1]
+                self.cache[ids[0]]['pages'][pg] = (0, l)
+                count += 1
+            self.page_count = max(self.page_count, count)
         return self.cache[ids[0]]
 
-    def getPage(self, url):
+    def getPage(self, url, page_index):
         parts = url.split('-')
         if len(parts) != 2: raise Exception('Test') # placeholder
         ids = parts[0].split('/')[-2:]
         m = self.cache[int(ids[1])]
-        data = self.requestPandaText(url)
-        soup = BeautifulSoup(data, 'html.parser')
-        div = soup.find_all("div", id="i3")[0]
-        img = div.findChildren("img", recursive=True)[0]
-        div = soup.find_all("div", id="i4")[0]
-        a = div.findChildren("a", recursive=True)
-        return img.attrs['src']
+        if str(page_index) not in m['pages'] or m['pages'][str(page_index)][0] == 0:
+            with self.page_lock:
+                now = time.time()
+                diff = now - self.page_time
+                if diff < 5:
+                    time.sleep(5 - diff + 0.1)
+                self.page_time = now
+            data = self.requestPandaText(url)
+            soup = BeautifulSoup(data, 'html.parser')
+            div = soup.find_all("div", id="i3")[0]
+            img = div.findChildren("img", recursive=True)[0]
+            div = soup.find_all("div", id="i4")[0]
+            a = div.findChildren("a", recursive=True)
+            m['pages'][str(page_index)] = (1, img.attrs['src'])
+        return m['pages'][str(page_index)][1]
 
     def updateCookie(self, headers):
         res = {}
@@ -347,8 +356,7 @@ class Sadpanda():
                 
                 html += '<div class="elem">'
                 html += '<i>{} images</i><br>'.format(m['filecount'])
-                tk = m['pages']['1'].split('/')
-                html += "<a href=/pandapage/{}/{}>Start reading</a>".format(tk[-2], tk[-1])
+                html += "<a href=/pandapage?gurl={}>Start reading</a>".format(path[len('/pandagallery/'):])
                 html += '</div></body>'
 
                 handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
@@ -358,27 +366,17 @@ class Sadpanda():
                 self.notification = 'Failed to open gallery {}'.format(path)
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
-        elif path.startswith('/pandapage/'):
+        elif path.startswith('/pandapage'):
             try:
-                options = self.server.getOptions(path, 'pandapage/')
+                options = self.server.getOptions(path, 'pandapage')
                 path = path.split('?')[0]
-                page_index = options.get('page', None)
-                gurl = options.get('gurl', None)
-                if page_index is None:
-                    page_index = int(path.split('-')[-1])
-                    purl = 'https://exhentai.org/s/' + path[len('/pandapage/'):]
-                    m = self.cache[int(path.split('/')[-1].split('-')[0])]
-                else:
-                    page_index = int(page_index)
-                    m = self.retrieveGallery('https://exhentai.org/g/' + gurl, page_index // self.page_count)
-                    purl = m['pages'][str(page_index)]
-                with self.page_lock:
-                    now = time.time()
-                    diff = now - self.page_time
-                    if diff < 5:
-                        time.sleep(5 - diff + 0.1)
-                    self.page_time = now
-                pic = self.getPage(purl)
+                page_index = options.get('page', 1)
+                gurl = options['gurl']
+                page_index = int(page_index)
+                m = self.retrieveGallery('https://exhentai.org/g/' + gurl, page_index // self.page_count)
+                pdt = m['pages'][str(page_index)]
+                if pdt[0] == 0: pic = self.getPage(pdt[1], page_index)
+                else: pic = pdt[1]
                 current = page_index
                 if current >= int(m['filecount']): next_p = int(m['filecount'])
                 else: next_p = current + 1
@@ -397,12 +395,11 @@ class Sadpanda():
                 footer = ""
                 for p in pl:
                     if p == current: footer += "<b>{}</b>".format(p)
-                    elif str(p) in m['pages']: footer += '<a href="/pandapage/{}">{}</a>'.format('/'.join(m['pages'][str(p)].split('/')[-2:]), p)
-                    else: footer += '<a href="/pandapage/?page={}&gurl={}/{}">{}</a>'.format(p-1, m['gid'], m['token'], p)
+                    else: footer += '<a href="/pandapage?page={}&gurl={}/{}">{}</a>'.format(p-1, m['gid'], m['token'], p)
                     if p != pl[-1]: footer += ' # '
                 html += footer + "</div>"
                 html += '<div>'
-                if str(next_p) in m['pages']: html += '<a href="/pandapage/{}"><img src="/pandaimg?file={}"></a>'.format('/'.join(m['pages'][str(next_p)].split('/')[-2:]), pic)
+                if str(next_p) in m['pages']: html += '<a href="/pandapage?page={}&gurl={}/{}"><img src="/pandaimg?file={}"></a>'.format(page_index + 1, m['gid'], m['token'], pic)
                 else: html += '<a href="/pandagallery/{}/{}"><img src="/pandaimg?file={}"></a>'.format(m['gid'], m['token'], pic)
                 html += "</div>"
                 html += '<div class="elem">'
