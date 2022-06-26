@@ -377,16 +377,15 @@ class Sadpanda():
                 pdt = m['pages'][str(page_index)]
                 if pdt[0] == 0: pic = self.getPage(pdt[1], page_index)
                 else: pic = pdt[1]
-                current = page_index
-                if current >= int(m['filecount']): next_p = int(m['filecount'])
-                else: next_p = current + 1
+                if page_index > int(m['filecount']): next_p = int(m['filecount']) + 1
+                else: next_p = page_index + 1
                 html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;padding: 10px 10px 10px 10px;font-size: 150%;}</style>'
                 html += '<div class="elem"><a href="/pandagallery/{}/{}">Back</a></div>'.format(m['gid'], m['token'])
                 html += '<div class="elem">'
                 html += '<b>' + m['title'] + '</b><br>'
                 html += '<i>' + m['title_jpn'] + '</i><br>'
-                html += "Page {} / {}<br>".format(current, m['filecount'])
-                pl = list(range(max(current-5, 1), min(current+6, int(m['filecount'])+1)))
+                html += "Page {} / {}<br>".format(page_index, m['filecount'])
+                pl = list(range(max(page_index-5, 1), min(page_index+6, int(m['filecount'])+1)))
                 if 1 not in pl: pl = [1] + pl
                 for px in range(1, 1 + int(m['filecount']) // 10):
                     if px * 10 not in pl: pl = pl + [px*10]
@@ -394,16 +393,16 @@ class Sadpanda():
                 pl.sort()
                 footer = ""
                 for p in pl:
-                    if p == current: footer += "<b>{}</b>".format(p)
-                    else: footer += '<a href="/pandapage?page={}&gurl={}/{}">{}</a>'.format(p-1, m['gid'], m['token'], p)
+                    if p == page_index: footer += "<b>{}</b>".format(p)
+                    else: footer += '<a href="/pandapage?page={}&gurl={}/{}">{}</a>'.format(p, m['gid'], m['token'], p)
                     if p != pl[-1]: footer += ' # '
                 html += footer + "</div>"
                 html += '<div>'
-                if str(next_p) in m['pages']: html += '<a href="/pandapage?page={}&gurl={}/{}"><img src="/pandaimg?file={}"></a>'.format(page_index + 1, m['gid'], m['token'], pic)
+                if str(next_p+1) in m['pages']: html += '<a href="/pandapage?page={}&gurl={}/{}"><img src="/pandaimg?file={}"></a>'.format(page_index + 1, m['gid'], m['token'], pic)
                 else: html += '<a href="/pandagallery/{}/{}"><img src="/pandaimg?file={}"></a>'.format(m['gid'], m['token'], pic)
                 html += "</div>"
                 html += '<div class="elem">'
-                html += "Page {} / {}<br>".format(current, m['filecount'])
+                html += "Page {} / {}<br>".format(page_index, m['filecount'])
                 html += footer + '</div></body>'
 
                 handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
