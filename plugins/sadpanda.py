@@ -377,7 +377,7 @@ class Sadpanda():
                 pdt = m['pages'][str(page_index)]
                 if pdt[0] == 0: pic = self.getPage(pdt[1], page_index)
                 else: pic = pdt[1]
-                if page_index > int(m['filecount']): next_p = int(m['filecount']) + 1
+                if page_index >= int(m['filecount']): next_p = -99
                 else: next_p = page_index + 1
                 html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;padding: 10px 10px 10px 10px;font-size: 150%;}</style>'
                 html += '<div class="elem"><a href="/pandagallery/{}/{}">Back</a></div>'.format(m['gid'], m['token'])
@@ -398,7 +398,7 @@ class Sadpanda():
                     if p != pl[-1]: footer += ' # '
                 html += footer + "</div>"
                 html += '<div>'
-                if str(next_p+1) in m['pages']: html += '<a href="/pandapage?page={}&gurl={}/{}"><img src="/pandaimg?file={}"></a>'.format(page_index + 1, m['gid'], m['token'], pic)
+                if str(next_p) in m['pages']: html += '<a href="/pandapage?page={}&gurl={}/{}"><img src="/pandaimg?file={}"></a>'.format(page_index + 1, m['gid'], m['token'], pic)
                 else: html += '<a href="/pandagallery/{}/{}"><img src="/pandaimg?file={}"></a>'.format(m['gid'], m['token'], pic)
                 html += "</div>"
                 html += '<div class="elem">'
