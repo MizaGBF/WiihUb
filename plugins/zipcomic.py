@@ -26,7 +26,7 @@ class ZipComic():
                 namelist = z.namelist()
                 tab = {}
                 for e in namelist:
-                    tab[e.replace('_', '-').split('-')[0].rjust(8)] = e
+                    tab[e.replace('_', '-').split('-')[0].split('.')[0].rjust(8)] = e
                 keys = list(tab.keys())
                 keys.sort()
                 namelist = []
