@@ -12,6 +12,7 @@ class Mangadex():
         self.cookies = self.server.data.get("mangadex_cookie", {})
         self.lang_filter = self.server.data.get("mangadex_languages", ['en'])
         self.lang_excluded = self.server.data.get("mangadex_exclude_languages", [])
+        self.demographic = self.server.data.get("mangadex_demographic", ["safe", "suggestive", "erotica"])
         self.cache = {}
         self.imgcache = {}
         self.lock = threading.Lock()
@@ -22,6 +23,7 @@ class Mangadex():
         self.server.data["mangadex_cookie"] = self.cookies
         self.server.data["mangadex_languages"] = self.lang_filter
         self.server.data["mangadex_exclude_languages"] = self.lang_excluded
+        self.server.data["mangadex_demographic"] = self.demographic
 
     def updateCookie(self, headers):
         res = {}
@@ -94,6 +96,7 @@ class Mangadex():
     def get_mangas(self, params={}, searchUsed=False):
         params['limit'] = self.page_limit
         params['order[latestUploadedChapter]'] = "desc"
+        params['contentRating[]'] = self.demographic
         if self.lang_filter is not None and len(self.lang_filter) > 0:
             params['availableTranslatedLanguage[]'] = self.lang_filter
         if not searchUsed and self.lang_excluded is not None and len(self.lang_excluded) > 0:
@@ -136,7 +139,7 @@ class Mangadex():
         total = 1
         while offset < total:
             time.sleep(1)
-            j = self.requestGet(f"{self.api}/manga/{id}/feed", params={"limit":500, "offset":offset}).json()
+            j = self.requestGet(f"{self.api}/manga/{id}/feed", params={"contentRating[]":self.demographic, "limit":500, "offset":offset}).json()
             check = j.get('result', None)
             if check is None or check != 'ok': raise Exception(f"Failed to retrieve chapters for series {id}")
             for c in j['data']:
