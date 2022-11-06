@@ -122,12 +122,13 @@ class Gamefaqs():
                 for b in bodies:
                     f = {}
                     try:
-                        li = b.findChildren("li", recursive=True)[0]
-                        if 'data-url' in li.attrs and '/faqs/' in li.attrs['data-url']:
-                            f['url'] = li.attrs['data-url']
-                            span = li.findChildren("span", class_="left", recursive=True)[0]
-                            f['title'] = span.text.replace('\n', '')
-                            faqs.append(f)
+                        lis = b.findChildren("li", recursive=True)
+                        for li in lis:
+                            ref = li.findChildren("a", class_="bold", recursive=True)[0]
+                            if game['url'] in ref.attrs['href']:
+                                f['url'] = ref.attrs['href']
+                                f['title'] = ref.text
+                                faqs.append(f)
                     except:
                         pass
             return faqs
@@ -143,16 +144,28 @@ class Gamefaqs():
             cheats = []
             html = self.requestGF(url)
             soup = BeautifulSoup(html, "html.parser")
-            results = soup.find_all('ul', {"class": "cheats"})
+            results = soup.find_all('div', {"class": "content"})
             for r in results:
-                subs = r.findChildren(['h3', 'p', 'table'], recursive=True)
+                subs = r.findChildren(['h4', 'p', 'table'], recursive=True)
                 for s in subs:
-                    if s.name == 'h3': cheats.append('<b>' + s.text + '</b>')
+                    if s.name == 'h4':
+                        cheats.append('<b>' + s.text + '</b>') # title
+                        try:
+                            cheats.append('<i>' + r.findChildren('div', recursive=False)[0].text + '</i>')
+                        except:
+                            pass
                     elif s.name == 'table':
-                        tds = s.findChildren('td', recursive=True)
-                        for td in tds:
-                            cheats.append(td.text)
-                    else: cheats.append(s.text)
+                        buf = '<table>'
+                        trs = s.findChildren('tr', recursive=True)
+                        for tr in trs:
+                            buf += '<tr>'
+                            tds = tr.findChildren(['th', 'td'], recursive=True)
+                            for td in tds:
+                                buf += '<th>' + td.text + "</th>"
+                            buf += '</tr>'
+                        cheats.append(buf + '</table>')
+                    else:
+                        cheats.append(s.text)
             return cheats
         except Exception as e:
             self.server.printex(e)
@@ -164,11 +177,10 @@ class Gamefaqs():
             answers = []
             html = self.requestGF(url)
             soup = BeautifulSoup(html, "html.parser")
-            results = soup.find_all('div', {"class": "pod"})
-            for r in results:
-                spans = r.findChildren('span', class_='name', recursive=True)
-                for s in spans:
-                    answers.append(s.text)
+            results = soup.find_all('tbody')
+            divs = soup.findChildren('div', class_='msg_text', recursive=True)
+            for d in divs:
+                answers.append(d.text)
             return answers
         except Exception as e:
             self.server.printex(e)
@@ -319,8 +331,6 @@ class Gamefaqs():
                     for r in results:
                         if 'value' in r:
                             html += '<a href="/gameloadanswer?url={}">{}</a><br>'.format(r['value'], r['label'])
-                        """else:
-                            html += '<a href="/gameboards?title={}&search={}">Search on boards</a><br>'.format(options['title'], quote(search))"""
                 html += '</div>'
                 html += footer
                 handler.answer(200, {'Content-type':'text/html'}, html.encode('utf-8'))
