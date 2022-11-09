@@ -43,7 +43,6 @@ class Mangadex():
     def requestGet(self, url, headers={}, params={}):
         headers["Cookie"] = self.buildCookie(self.cookies)
         headers["User-Agent"] = self.server.user_agent_common
-        headers["Connection"] = "close"
         rep = self.server.http_client.get(url, headers=headers, params=params, follow_redirects=True)
         if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
         self.updateCookie(rep.headers)
@@ -52,7 +51,6 @@ class Mangadex():
     def requestGetStream(self, url, headers={}):
         headers["Cookie"] = self.buildCookie(self.cookies)
         headers["User-Agent"] = self.server.user_agent_common
-        headers["Connection"] = "close"
         headers["Referer"] = "https://mangadex.org/"
         rep = self.server.http_client.get(url, headers=headers, follow_redirects=True)
         if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
