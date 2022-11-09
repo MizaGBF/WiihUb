@@ -4,6 +4,7 @@ import logging
 import json
 import plugins
 import traceback
+import httpx
 
 class Handler(BaseHTTPRequestHandler):
     def check_client_address(self, address):
@@ -107,7 +108,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v3.4.16"
+        self.version = "v3.5.0"
         print("Starting...\n")
         try:
             with open('config.json', 'rb') as f:
@@ -122,6 +123,8 @@ class WiihUb(ThreadingHTTPServer):
                 elif i.lower() == 'y': break
             self.data = {'home_network':'192.168.1'}
             self.save()
+        limits = httpx.Limits(max_keepalive_connections=100, max_connections=100, keepalive_expiry=10)
+        self.http_client = httpx.Client(limits=limits)
         self.plugins = []
         self.blacklist = []
         self.is_running = True

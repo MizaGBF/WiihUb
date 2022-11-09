@@ -1,4 +1,3 @@
-import requests
 from urllib.parse import quote, unquote
 import tweepy
 import webbrowser
@@ -114,9 +113,9 @@ class Twitter():
                 if url in self.img_cache:
                     raw = self.img_cache[url]
                 else:
-                    rep = requests.get(url, headers={'User-Agent':self.server.user_agent_common}, stream=True)
+                    rep = self.server.http_client.get(url, headers={'User-Agent':self.server.user_agent_common})
                     if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
-                    raw = rep.raw.read()
+                    raw = rep.content
                     with self.lock:
                         self.img_cache[url] = raw
                         if len(self.img_cache) > 50:

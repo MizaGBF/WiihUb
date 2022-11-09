@@ -1,6 +1,5 @@
 from urllib.parse import quote, unquote
 import json
-import requests
 import os
 
 class XCX():
@@ -36,10 +35,10 @@ class XCX():
 
     def update(self):
         try:
-            rep = requests.get("https://frontiernav.jahed.dev/api/namespaces/xenoblade-chronicles-x/index.json", headers={'User-Agent':self.server.user_agent_common})
+            rep = self.server.http_client.get("https://frontiernav.jahed.dev/api/namespaces/xenoblade-chronicles-x/index.json", headers={'User-Agent':self.server.user_agent_common})
             hash = rep.json()['graph']['hash']
             size = rep.json()['graph']['size']
-            rep = requests.get(f"https://frontiernav-static.jahed.dev/user-content/xenoblade-chronicles-x/{hash}.{size}.json", headers={'User-Agent':self.server.user_agent_common})
+            rep = self.server.http_client.get(f"https://frontiernav-static.jahed.dev/user-content/xenoblade-chronicles-x/{hash}.{size}.json", headers={'User-Agent':self.server.user_agent_common})
             data = rep.json()
             converted = {}
             ts = {}

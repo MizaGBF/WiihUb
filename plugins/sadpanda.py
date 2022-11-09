@@ -2,7 +2,6 @@ from urllib.parse import quote, unquote
 from bs4 import BeautifulSoup
 import time
 import threading
-import requests
 
 class Sadpanda():
     def __init__(self, server):
@@ -14,6 +13,7 @@ class Sadpanda():
         self.credentials = self.server.data.get("panda_login", ["login", "password"])
         self.running = self.login()
         self.lock = threading.Lock()
+        self.first_pages = {}
         self.page_cache = {}
         self.search_time = time.time()
         self.page_time = time.time()
@@ -29,22 +29,21 @@ class Sadpanda():
 
     def requestPandaText(self, url, headers={}):
         headers["Cookie"] = self.buildCookie(self.cookies)
-        headers["user-Agent"] = self.server.user_agent_common
+        headers["User-Agent"] = self.server.user_agent_common
         headers["Connection"] = "close"
-        rep = requests.get(url, headers=headers)
+        rep = self.server.http_client.get(url, headers=headers)
         if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
         self.updateCookie(rep.headers)
         return rep.text
 
     def requestPandaRaw(self, url, headers={}):
         headers["Cookie"] = self.buildCookie(self.cookies)
-        headers["user-Agent"] = self.server.user_agent_common
+        headers["User-Agent"] = self.server.user_agent_common
         headers["Connection"] = "close"
-        rep = requests.get(url, headers=headers, stream=True)
+        rep = self.server.http_client.get(url, headers=headers)
         if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
         self.updateCookie(rep.headers)
-        raw = rep.raw.read()
-        return raw
+        return rep.content
 
     def login(self):
         try:
@@ -53,7 +52,7 @@ class Sadpanda():
             return True
         except:
             try:
-                rep = requests.post('https://forums.e-hentai.org/index.php?act=Login&CODE=01', headers={'Referer': 'https://e-hentai.org/bounce_login.php?b=d&bt=1-1'}, data = {"CookieDate": "1","b": "d","bt": "1-1","UserName": self.credentials[0],"PassWord": self.credentials[1],"ipb_login_submit": "Login!"})
+                rep = self.server.http_client.post('https://forums.e-hentai.org/index.php?act=Login&CODE=01', headers={'Referer': 'https://e-hentai.org/bounce_login.php?b=d&bt=1-1'}, data = {"CookieDate": "1","b": "d","bt": "1-1","UserName": self.credentials[0],"PassWord": self.credentials[1],"ipb_login_submit": "Login!"}, follow_redirects=True)
                 if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
                 self.updateCookie(rep.headers)
                 if "ipb_member_id" not in self.cookies and "ipb_pass_hash" not in self.cookies: raise Exception("Invalid credentials")
@@ -64,16 +63,22 @@ class Sadpanda():
                 self.server.printex(e)
                 return False
 
-    def updateWatched(self, search, page):
+    def updateWatched(self, search, prev, next):
         self.requestPandaText("https://exhentai.org/mytags", {'Host': 'exhentai.org', 'Referer': 'https://exhentai.org/watched'})
         url = "https://exhentai.org/watched"
-        if search is None and page is None: data = self.requestPanda(url)
-        elif page is None: data = self.requestPanda(url + "?f_search={}".format(search))
-        elif search is None: data = self.requestPanda(url + "?page={}".format(page))
-        else: data = self.requestPanda(url + "?page={}&f_search={}".format(page, search))
+        if search is None and prev is None and next is None: data = self.requestPandaText(url)
+        elif prev is None and next is None: data = self.requestPandaText(url + "?f_search={}".format(search))
+        elif search is None:
+            if next is not None: data = self.requestPandaText(url + "?next={}".format(next))
+            elif prev is not None: data = self.requestPandaText(url + "?prev={}".format(prev))
+            else: data = self.requestPandaText(url)
+        else:
+            if next is not None: data = self.requestPandaText(url + "?f_search={}&next={}".format(search, next))
+            elif prev is not None: data = self.requestPandaText(url + "?f_search={}&prev={}".format(search, prev))
+            else: data = self.requestPandaText(url + "?f_search={}".format(search))
         return data
 
-    def loadList(self, search=None, page=None, watched=False, popular=False):
+    def loadList(self, search=None, prev=None, next=None, watched=False, popular=False):
         try:
             with self.search_lock:
                 now = time.time()
@@ -85,17 +90,24 @@ class Sadpanda():
             if popular: url += "popular"
             elif watched: url += "watched"
             try:
+                if search == "": search = None
                 if popular: data = self.requestPandaText(url)
-                elif search is None and page is None: data = self.requestPandaText(url)
-                elif page is None: data = self.requestPandaText(url + "?f_search={}".format(search))
-                elif search is None: data = self.requestPandaText(url + "?page={}".format(page))
-                else: data = self.requestPandaText(url + "?page={}&f_search={}".format(page, search))
+                elif search is None and prev is None and next is None: data = self.requestPandaText(url)
+                elif prev is None and next is None: data = self.requestPandaText(url + "?f_search={}".format(search))
+                elif search is None:
+                    if next is not None: data = self.requestPandaText(url + "?next={}".format(next))
+                    elif prev is not None: data = self.requestPandaText(url + "?prev={}".format(prev))
+                    else: data = self.requestPandaText(url)
+                else:
+                    if next is not None: data = self.requestPandaText(url + "?f_search={}&next={}".format(search, next))
+                    elif prev is not None: data = self.requestPandaText(url + "?f_search={}&prev={}".format(search, prev))
+                    else: data = self.requestPandaText(url + "?f_search={}".format(search))
             except:
-                data = self.updateWatched(search, page)
+                data = self.updateWatched(search, prev, next)
             soup = BeautifulSoup(data, 'html.parser')
             td = soup.find_all("td", {'class':['gl3m', 'glname']})
             if len(td) == 0 and watched == True:
-                data = self.updateWatched(search, page)
+                data = self.updateWatched(search, prev, next)
                 soup = BeautifulSoup(data, 'html.parser')
                 td = soup.find_all("td", {'class':['gl3m', 'glname']})
             res = []
@@ -142,8 +154,9 @@ class Sadpanda():
         for il in ids:
             if len(il) > 0:
                 try:
-                    r = requests.post('https://api.e-hentai.org/api.php', headers={'User-Agent':self.server.user_agent_common}, json={"method": "gdata","gidlist": il,"namespace": 1})
+                    r = self.server.http_client.post('https://api.e-hentai.org/api.php', headers={'User-Agent':self.server.user_agent_common}, json={"method": "gdata","gidlist": il,"namespace": 1})
                     data = r.json()
+                    print(data)
                     for m in data['gmetadata']:
                         if 'error' not in m:
                             self.cache[m['gid']] = m
@@ -180,6 +193,7 @@ class Sadpanda():
             div = soup.find_all("div", class_="gdtm")
             res = []
             count = 0
+            print(div)
             for e in div:
                 a = e.findChildren("a", recursive=True)[0]
                 l = a.attrs['href']
@@ -193,6 +207,7 @@ class Sadpanda():
         parts = url.split('-')
         if len(parts) != 2: raise Exception('Test') # placeholder
         ids = parts[0].split('/')[-2:]
+        print("hi")
         m = self.cache[int(ids[1])]
         if str(page_index) not in m['pages'] or m['pages'][str(page_index)][0] == 0:
             with self.page_lock:
@@ -212,7 +227,7 @@ class Sadpanda():
 
     def updateCookie(self, headers):
         res = {}
-        ck = headers.get('Set-Cookie', '').replace('domain=.e-hentai.org, ', '').replace('domain=forums.e-hentai.org, ', '').split('; ')
+        ck = headers.get('set-cookie', '').replace('domain=.e-hentai.org, ', '').replace('domain=forums.e-hentai.org, ', '').split('; ')
         for c in ck:
             s = c.split('=', 1)
             if s[0] in ['path', 'domain'] or len(s) != 2: continue
@@ -253,10 +268,10 @@ class Sadpanda():
         if url.startswith('https://exhentai.org/') or url.startswith('https://ehgt.org/'):
             data = self.requestPandaRaw(url, headers=panda_headers)
         else:
-            rep = requests.get(url, headers={'User-Agent':self.server.user_agent_common}, stream=True)
+            rep = self.server.http_client.get(url, headers={'User-Agent':self.server.user_agent_common})
             if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
             self.updateCookie(rep.headers)
-            data = rep.raw.read()
+            data = rep.content
         return data
 
     def loadThumbnail(self, gid):
@@ -269,16 +284,24 @@ class Sadpanda():
                 m = self.cache[gid]
         return m
 
+    def list2index(self, ll):
+        try:
+            prev = self.urlToIds(ll[0][0])[0]
+            try: next = self.urlToIds(ll[-1][0])[0]
+            except: next = None
+        except:
+            prev = None
+            next = None
+        return prev, next
+
     def process_get(self, handler, path):
         if not self.running: return False
         host_address = handler.headers.get('Host')
         if path.startswith('/panda?'):
             options = self.server.getOptions(path, 'panda')
             try:
-                search = options.get('search', None)
-                if search == "": search = None
-                page = options.get('page', None)
-                ll = self.loadList(search, page, ('watched' in options), ('popular' in options))
+                search = options.get('search', "")
+                ll = self.loadList(search, options.get('prev', None), options.get('next', None), ('watched' in options), ('popular' in options))
                 l = self.loadGalleries(ll)
 
                 if 'watched' in options:
@@ -297,17 +320,18 @@ class Sadpanda():
                 else:
                     html += '<div class="elem"><form action="/panda"><legend><b>Sadpanda Browser</b></legend>{}<label for="search">Search </label><input type="text" id="search" name="search" value="{}"><br><input type="submit" value="Search"></form>{}</div>'.format(hidden, "" if search is None else unquote(search.replace('+', ' ')).replace("'", '&#39;').replace('"', '&#34;'), back)
 
-                    if page is None: page = "0"
-                    if search is None: search = ""
-                    page_list = [0]
-                    for i in range(max(0, int(page)-5), int(page)+5):
-                        if i not in page_list: page_list.append(i)
                     footer = ""
                     footer += '<div class="elem" style="font-size: 150%;">'
-                    for p in page_list:
-                        if p == int(page): footer += '<b>{}</b>'.format(page)
-                        else: footer += '<a href="{}search={}&page={}">{}</a>'.format(panda, search, p, p)
-                        if p is not page_list[-1]: footer += " # "
+                    
+                    prev, next = self.list2index(ll)
+                    if 'prev' not in options and 'next' not in options:
+                        self.first_pages[('watched' in options, search)] = prev
+                    footer += '<a href="{}search={}">First</a>'.format(panda, search)
+                    if ('prev' in options or 'next' in options) and prev is not None and self.first_pages.get(('watched' in options, search), None) != prev:
+                        footer += ' # <a href="{}search={}&prev={}">Prev</a>'.format(panda, search, prev)
+                    if next is not None:
+                        footer += ' # <a href="{}search={}&next={}">Next</a>'.format(panda, search, next)
+                        if next != "1": footer += ' # <a href="{}search={}&prev=1">Last</a>'.format(panda, search)
                     footer += '</div>'
 
                 html += footer
@@ -326,7 +350,7 @@ class Sadpanda():
             except Exception as e:
                 print("Failed to open list")
                 self.server.printex(e)
-                self.notification = 'Failed to access {}, page {}'.format(options.get('search', ''), options.get('page', 'unknown'))
+                self.notification = 'Failed to access {}, prev token {}, next token {}'.format(options.get('search', ''), options.get('prev', 'undefined'), options.get('next', 'undefined'))
                 handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
         elif path.startswith('/pandathumb/'):

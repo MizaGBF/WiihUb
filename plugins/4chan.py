@@ -1,6 +1,5 @@
 from xml.sax import saxutils as su
 import re
-import requests
 from urllib.parse import quote, unquote
 
 class FourChan():
@@ -29,7 +28,7 @@ class FourChan():
     def get4chan(self, board, search): # be sure to not abuse it, you are not supposed to call the api more than once per second
         try:
             url = 'http://a.4cdn.org/{}/catalog.json'.format(board) # board catalog url
-            rep = requests.get(url)
+            rep = self.server.http_client.get(url, follow_redirects=True)
             if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
             data = rep.json()
             search = search.lower()

@@ -1,7 +1,7 @@
 # WiihUb  
 * Simple Media Server for the Wii U.  
 * Partially Compatible with the New 3DS and New 2DS.  
-* Requires Python 3.9 or higher.  
+* Requires Python 3.11 or higher.  
 * Work in progress.  
 # Features  
 Flexible and simple plugin system. Currently support:  

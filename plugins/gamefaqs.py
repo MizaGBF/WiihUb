@@ -1,7 +1,6 @@
 import json
 from urllib.parse import quote, unquote
 from bs4 import BeautifulSoup
-import requests
 
 class Gamefaqs():
     def __init__(self, server):
@@ -35,7 +34,7 @@ class Gamefaqs():
 
     def updateCookie(self, headers):
         res = {}
-        ck = headers.get('Set-Cookie', '').split('; ')
+        ck = headers.get('set-cookie', '').split('; ')
         for c in ck:
             s = c.split('=', 1)
             if s[0] in ['path', 'domain'] or len(s) != 2: continue
@@ -49,7 +48,7 @@ class Gamefaqs():
         return s
 
     def requestGF(self, url, use_json=False):
-        rep = requests.get(url, headers={"User-Agent": self.server.user_agent_common, "Cookie": self.buildCookie(self.cookies)})
+        rep = self.server.http_client.get(url, headers={"User-Agent": self.server.user_agent_common, "Cookie": self.buildCookie(self.cookies)}, follow_redirects=True)
         if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
         self.updateCookie(rep.headers)
         if use_json: return rep.json()

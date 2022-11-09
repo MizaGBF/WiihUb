@@ -1,4 +1,3 @@
-import requests
 from urllib.parse import quote, unquote
 import time
 from PIL import Image
@@ -27,7 +26,7 @@ class Mangadex():
 
     def updateCookie(self, headers):
         res = {}
-        ck = headers.get('Set-Cookie', '').split('; ')
+        ck = headers.get('set-cookie', '').split('; ')
         for c in ck:
             s = c.split('=', 1)
             if s[0] in ['path', 'domain'] or len(s) != 2: continue
@@ -43,23 +42,22 @@ class Mangadex():
 
     def requestGet(self, url, headers={}, params={}):
         headers["Cookie"] = self.buildCookie(self.cookies)
-        headers["user-Agent"] = self.server.user_agent_common
+        headers["User-Agent"] = self.server.user_agent_common
         headers["Connection"] = "close"
-        rep = requests.get(url, headers=headers, params=params)
+        rep = self.server.http_client.get(url, headers=headers, params=params, follow_redirects=True)
         if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
         self.updateCookie(rep.headers)
         return rep
 
     def requestGetStream(self, url, headers={}):
         headers["Cookie"] = self.buildCookie(self.cookies)
-        headers["user-Agent"] = self.server.user_agent_common
+        headers["User-Agent"] = self.server.user_agent_common
         headers["Connection"] = "close"
-        headers["referer"] = "https://mangadex.org/"
-        rep = requests.get(url, headers=headers, stream=True)
+        headers["Referer"] = "https://mangadex.org/"
+        rep = self.server.http_client.get(url, headers=headers, follow_redirects=True)
         if rep.status_code != 200: raise Exception("HTTP Error {}".format(rep.status_code))
         self.updateCookie(rep.headers)
-        raw = rep.raw.read()
-        return raw
+        return rep.content
 
     def get_manga_cover(self, id):
         time.sleep(1)
