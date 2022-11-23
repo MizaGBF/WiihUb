@@ -1,8 +1,5 @@
 import subprocess
-from subprocess import DEVNULL
 import time
-from os import listdir, unlink, makedirs, path, remove
-from os.path import isfile, join, islink
 import urllib.parse
 import glob
 

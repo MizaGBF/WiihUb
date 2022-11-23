@@ -5,7 +5,7 @@
 * Work in progress.  
 # Features  
 Flexible and simple plugin system. Currently support:  
-* Streamlink calls to receive Twitch streams on your Wii U (Twitch is currently broken on the Wii U/N3DS Browsers).  
+* Streamlink calls to receive Twitch streams on your Wii U (Twitch is currently broken on the Wii U/N3DS Browsers), using VLC as an intermediary.  
 * Screenshot upload (for ease of use).  
 * 4chan Thread search (The search doesn't work anymore on the Wii U Browser).  
 * Twitter Browser (Requires a Dev account).  
@@ -13,7 +13,7 @@ Flexible and simple plugin system. Currently support:
 * Mangadex Browser.  
 * ExHentai Browser.  
 * VLC Streaming (to watch videos from your PC using VLC to transcode to the proper format) (Wii U Only).  
-* Video Streaming for the 3DS (Video must be encoded to the right format, see below).  
+* Video Streaming for the 3DS and Wii U (in low quality) (Video must be encoded to the right format, see below).  
 * Notepad, to take notes.  
 * Xenoblade X Companion (Allow you to search XCX-related items, etc...).  
 `pip install -r requirements.txt` to install all the modules. 
@@ -61,26 +61,14 @@ class Example():
     def get_manual(self):
         return '<b>Plugin Example</b><br>This is an example.'
 ```
-# Streamlink modification  
-You must do a slight moditication to [Streamlink](https://github.com/streamlink/streamlink) to receive Twitch on your Wii U.  
-Locate your Streamlink folder and then go into:  
-`Streamlink/pkgs/streamlink_cli/utils`  
-Open `http_server.py` and search for the line  
-`conn.send(b"Content-Type: video/unknown\r\n")`  
-Replace it with:  
-`conn.send(b"Content-Type: video/mp4\r\n")`  
-Make sure to keep the indentation using spaces.  
+# Streamlink  
+The Streamlink plugin shares some configuration with the VLC one, so be sure to set the VLC values properly.  
+VLC is used to circumvent the ad problems.  
+To sum it up, ads break the stream continuity and the Wii U or N3DS are unable to process it correctly. And the "disable ads" setting doesn't really help.  
+Add to this the fact the Wii U is now experiencing graphical artifacts on Twitch streams for a while now, I now use VLC in between Streamlink and the console to transcode the stream in a format properly readable by the console.  
+Even ads should be properly now.  
   
-Pre-roll ads make the Wii U unable to load the playlist, another modification is required as a result:
-On Streamlink 2.0.0 and further, go to:
-`Streamlink/pkgs/streamlink/plugins`  
-Open `twitch.py` and search for the function  
-`def access_token(self, is_live, channel_or_vod):`  
-A bit lower, you'll find:
-`"playerType": "embed"` or `"playerType="embed"`
-Replace `embed` by `frontpage` and you are done.  
-If you are still getting pre-roll ads, wait a few minutes before trying again.  
-Alternatively, you can try `frontpage` or even keep the default, `embed`.  
+Do note the streamlink port value set in `config.json` is merely for internal use. The one your console will use is this value, plus one (Example, if you set 4356, VLC will grab the stream on this port and output it on 4357).  
 # Using Twitter  
 With the new Twitter API V2, it's now more complicated to use Twitter.  
 1. Get a Twitter account.  
