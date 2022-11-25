@@ -25,14 +25,13 @@ class Streamlink():
         self.server.data["streamlink_history"] = self.history
         self.server.data["streamlink_path"] = self.streamlink_path
         self.server.data["streamlink_port"] = self.streamlink_port
-        self.server.data["vlc_folder"] = self.folder
         self.server.data["vlc_path"] = self.path
         self.streamlink_kill()
 
     def streamlink_kill(self):
-        if self.kill_process(self.streamlink):
-            print("Stopped the streamlink instance")
         if self.kill_process(self.vlc):
+            print("Stopped the streamlink instance")
+        if self.kill_process(self.streamlink):
             print("Stopped the streamlink instance")
         self.streamlink = None
         self.vlc = None
@@ -79,8 +78,8 @@ class Streamlink():
         self.history = [[user, qual]] + self.history
         if len(self.history) > 100: self.history = self.history[:100]
 
-    def start_process(self, params, qual = None):
-        stlk = subprocess.Popen([self.streamlink_path] + params)
+    def start_vlc(self, qual = None):
+        self.kill_process(self.vlc)
         if qual is None:
             size = "width=1280,height=720"
         else:
@@ -93,25 +92,29 @@ class Streamlink():
                 case "1080p": size = "width=1920,height=1080"
                 case "1080p60": size = "width=1920,height=1080"
                 case _: size = "width=1280,height=720"
+        self.vlc = subprocess.Popen([self.path, "http://127.0.0.1:{}/".format(self.streamlink_port), '--no-sout-all', '--sout=#transcode{' + size + ',fps=30,vcodec=h264,vb=1200,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=128,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:' + str(self.vlc_port) + '/'])
+        time.sleep(12)
+
+    def start_process(self, params, qual = None):
+        stlk = subprocess.Popen([self.streamlink_path] + params)
         time.sleep(8)
         print("Checking if stream is available...")
         if stlk.poll() is None:
             self.streamlink_kill()
             self.streamlink = stlk
-            self.vlc = subprocess.Popen([self.path, "http://127.0.0.1:{}/".format(self.streamlink_port), '--no-sout-all', '--sout=#transcode{' + size + ',fps=30,vcodec=h264,vb=1200,venc=x264{aud,profile=baseline,level=30,keyint=30,ref=1},acodec=aac,ab=128,channels=2,soverlay}:std{access=http{mime=video/mp4},mux=ts,dst=:' + str(self.vlc_port) + '/'])
+            self.start_vlc(qual)
             return True
         else:
             self.kill_process(stlk)
         return False
 
     def process_get(self, handler, path):
+        host_address = handler.headers.get('Host')
         if path.startswith('/twitch?'):
-            host_address = handler.headers.get('Host')
             options = self.server.getOptions(path, 'twitch')
             try:
                 if 'stream' not in options: raise Exception()
                 if self.start_process(["--twitch-disable-ads", "--twitch-disable-hosting", "--stream-segment-threads", "2", "--player-continuous-http", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "twitch.tv/{}".format(options['stream']), options.get('qual', '720p60')], qual=options.get('qual', '720p60')):
-                    time.sleep(8)
                     self.last_stream = options['stream']
                     self.last_quality = options.get('qual', self.last_quality)
                     self.streamlink_url = 'http://{}:{}'.format(host_address.split(":")[0], self.vlc_port)
@@ -152,8 +155,18 @@ class Streamlink():
             html += '<div class="elem"><form action="/streamlinkcustom"><legend><b>Open any url. Results might vary.</b></legend><label for="url">Url </label><input type="text" id="url" name="url" value=""><br><label for="qual">Quality </label><input type="text" id="qual" name="qual" value="best"><br><label for="options">Options </label><input type="text" id="options" name="options" value=""><br><input type="submit" value="Start"></form>'
             handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
             return True
+        elif path.startswith('/streamlinkreload'):
+            try:
+                self.start_vlc(self.last_quality)
+                handler.answer(303, {'Location': 'http://{}'.format(host_address)})
+            except Exception as e:
+                print("Can't open vlc")
+                self.server.printex(e)
+                self.notification = "Can't open vlc"
+                handler.answer(303, {'Location': 'http://{}'.format(host_address)})
+                return True
+            return True
         elif path.startswith('/streamlinkcustom?'):
-            host_address = handler.headers.get('Host')
             options = self.server.getOptions(path, 'streamlinkcustom')
             try:
                 if 'url' not in options: raise Exception()
@@ -203,6 +216,7 @@ class Streamlink():
         html += '</select><br><input type="submit" value="Start"></form><a href="streamlinkhistory">History</a><br><a href="streamlinkadvanced">Advanced</a><br>'
         if self.streamlink is not None:
             html += '<a href="{}">Watch {}</a>'.format(self.streamlink_url, self.streamlink_current)
+            html += '<br><a href="/streamlinkreload">Reload VLC</a>'
             html += '<br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'
         if self.notification is not None:
             html += "{}<br>".format(self.notification)
