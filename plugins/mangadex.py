@@ -155,14 +155,20 @@ class Mangadex():
                                 break
                         else:
                             if self.cache[id]['chapter_list'][i]["attributes"]["volume"] is not None:
-                                if float(c["attributes"]["volume"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]):
-                                    self.cache[id]['chapter_list'].insert(i, c)
-                                    issorted = True
-                                    break
-                                elif float(c["attributes"]["volume"]) == float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]) and float(c["attributes"]["chapter"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["chapter"]):
-                                    self.cache[id]['chapter_list'].insert(i, c)
-                                    issorted = True
-                                    break
+                                try:
+                                    if float(c["attributes"]["volume"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]):
+                                        self.cache[id]['chapter_list'].insert(i, c)
+                                        issorted = True
+                                        break
+                                    elif float(c["attributes"]["volume"]) == float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]) and float(c["attributes"]["chapter"]) > float(self.cache[id]['chapter_list'][i]["attributes"]["chapter"]):
+                                        self.cache[id]['chapter_list'].insert(i, c)
+                                        issorted = True
+                                        break
+                                except:
+                                    if float(c["attributes"]["volume"]) == float(self.cache[id]['chapter_list'][i]["attributes"]["volume"]) and str(c["attributes"]["chapter"]) > str(self.cache[id]['chapter_list'][i]["attributes"]["chapter"]):
+                                        self.cache[id]['chapter_list'].insert(i, c)
+                                        issorted = True
+                                        break
                     if not issorted:
                         self.cache[id]['chapter_list'].append(c)
             total = j['total']
@@ -179,8 +185,8 @@ class Mangadex():
         except:
             pass
         try:
-            ca = float(a['attributes']['chapter'])
-            cb = float(b['attributes']['chapter'])
+            ca = str(a['attributes']['chapter'])
+            cb = str(b['attributes']['chapter'])
             if ca == cb: return "Same"
             elif ca < cb: return "Next"
             else: return "Previous"
