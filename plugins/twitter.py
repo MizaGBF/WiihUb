@@ -190,7 +190,6 @@ class Twitter():
     def get_single_tweet(self, id):
         tweets = self.client.get_tweets(ids=[id], tweet_fields=['context_annotations', 'created_at', 'entities', 'public_metrics'], user_fields=['profile_image_url'], media_fields=['preview_image_url', 'url'], expansions=['author_id', 'attachments.media_keys', 'entities.mentions.username', 'referenced_tweets.id', 'referenced_tweets.id.author_id'])
         tweet = tweets.data[0]
-        print("=========================", tweet.author_id)
         user = self.get_user(tweet.author_id)
         try: media = {m["media_key"]: m for m in tweets.includes['media']}
         except: media = {}

@@ -185,13 +185,20 @@ class Mangadex():
         except:
             pass
         try:
-            ca = str(a['attributes']['chapter'])
-            cb = str(b['attributes']['chapter'])
+            ca = float(a['attributes']['chapter'])
+            cb = float(b['attributes']['chapter'])
             if ca == cb: return "Same"
             elif ca < cb: return "Next"
             else: return "Previous"
         except:
-            pass
+            try:
+                ca = str(a['attributes']['chapter'])
+                cb = str(b['attributes']['chapter'])
+                if ca == cb: return "Same"
+                elif ca < cb: return "Next"
+                else: return "Previous"
+            except:
+                pass
         return "Undefined"
 
     def get_pages(self, id, cid):
