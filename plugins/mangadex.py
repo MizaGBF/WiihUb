@@ -34,11 +34,7 @@ class Mangadex():
         self.cookies = {**self.cookies, **res}
 
     def buildCookie(self, c):
-        s = ""
-        for k in c:
-            s += k + "=" + c[k] + "; "
-        if len(s) > 0: s = s[:-2]
-        return s
+        return "; ".join([k+"="+c[k] for k in c])
 
     def requestGet(self, url, headers={}, params={}):
         headers["Cookie"] = self.buildCookie(self.cookies)

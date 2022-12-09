@@ -42,10 +42,7 @@ class Gamefaqs():
         self.cookies = {**self.cookies, **res}
 
     def buildCookie(self, c):
-        s = ""
-        for k in c:
-            s += k + "=" + c[k] + "; "
-        return s
+        return "; ".join([k+"="+c[k] for k in c])
 
     def requestGF(self, url, use_json=False):
         rep = self.server.http_client.get(url, headers={"User-Agent": self.server.user_agent_common, "Cookie": self.buildCookie(self.cookies)}, follow_redirects=True)
