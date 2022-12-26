@@ -156,7 +156,6 @@ class Sadpanda():
                 try:
                     r = self.server.http_client.post('https://api.e-hentai.org/api.php', headers={'User-Agent':self.server.user_agent_common}, json={"method": "gdata","gidlist": il,"namespace": 1})
                     data = r.json()
-                    print(data)
                     for m in data['gmetadata']:
                         if 'error' not in m:
                             self.cache[m['gid']] = m
