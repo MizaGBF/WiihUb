@@ -20,7 +20,7 @@ def load(parent): # load all plugins in the 'plugins' folder
 
                             module = import_module('.' + module_name, package='plugins') # import
                             _class = getattr(module, class_name) # make
-                            parent.add_plugin(_class(parent)) # instantiate and add to the parent
+                            parent.add_plugin(module_name, _class(parent)) # instantiate and add to the parent
                         except Exception as e:
                             print("Plugin Import Exception in file", p, ":", e)
                             parent.printex(e)

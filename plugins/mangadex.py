@@ -171,7 +171,6 @@ class Mangadex():
             offset += len(j['data'])
 
     def cmp_chapter(self, a, b):
-        lang = a['attributes']['translatedLanguage']
         if a['attributes']['translatedLanguage'] != b['attributes']['translatedLanguage']: return "No Match"
         try:
             ca = float(a['attributes']['volume'])
@@ -326,7 +325,10 @@ class Mangadex():
                     html += '<a href="/manga?tag={}&name={}">{}</a>'.format(t["id"], quote(t["attributes"]["name"]["en"]).replace(" ", "+"), t["attributes"]["name"]["en"])
                     if t is not m['attributes']['tags'][-1]: html += ", "
                 html += "<br><br><u>Description:</u><br>"
-                try: html += f"{m['attributes']['description']['en']}".replace('\n', '<br>').replace('\r', '').replace('[b]', '<b>').replace('[i]', '<i>').replace('[u]', '<u>').replace('[s]', '<strike>').replace('[/b]', '</b>').replace('[/i]', '</i>').replace('[/u]', '</u>').replace('[/s]', '</strike>').replace('[img]', '<img src="').replace('[/img]', '">').replace('[Spoiler]', '<details><summary>Spoiler</summary>').replace('[/Spoiler]', '</details>').replace('[spoiler]', '<details><summary>Spoiler</summary>').replace('[/spoiler]', '</details>').replace('[url=', '<a href="').replace('[/url]', '</a>').replace('[', '<').replace(']', '">').replace('https://twitter.com/', '/twitter?account=')
+                try:
+                    x = f"{m['attributes']['description']['en']}".replace('\n', '<br>').replace('\r', '').replace('[b]', '<b>').replace('[i]', '<i>').replace('[u]', '<u>').replace('[s]', '<strike>').replace('[/b]', '</b>').replace('[/i]', '</i>').replace('[/u]', '</u>').replace('[/s]', '</strike>').replace('[img]', '<img src="').replace('[/img]', '">').replace('[Spoiler]', '<details><summary>Spoiler</summary>').replace('[/Spoiler]', '</details>').replace('[spoiler]', '<details><summary>Spoiler</summary>').replace('[/spoiler]', '</details>').replace('[url=', '<a href="').replace('[/url]', '</a>').replace('[', '<').replace(']', '">')
+                    if 'twitter' in self.server.plugins: x = x.replace('https://twitter.com/', '/twitter?account=')
+                    html += x
                 except: pass
                 html += "</div>"
                 
@@ -441,7 +443,7 @@ class Mangadex():
                             for key in keys:
                                 imdata[key] = self.imgcache[key]
                             self.imgcache = imdata
-                handler.answer(200, {'Content-type': 'image/jpg'}, self.imgcache[url])
+                handler.answer(200, {'Content-type': 'image/'+ext}, self.imgcache[url])
                 return True
             except Exception as e:
                 print("Failed to open image")

@@ -69,15 +69,7 @@ Add to this the fact the Wii U is now experiencing graphical artifacts on Twitch
 Even ads should be properly now.  
   
 Do note the streamlink port value set in `config.json` is merely for internal use. The one your console will use is this value, plus one (Example, if you set 4356, VLC will grab the stream on this port and output it on 4357).  
-# Using Twitter  
-With the new Twitter API V2, it's now more complicated to use Twitter.  
-1. Get a Twitter account.  
-2. Apply for [Dev access](https://developer.twitter.com/en).  
-3. On the dev portal, create a new project and then an application under it.  
-4. Get and copy the **Bearer Token**.  
-5. Either place the token in config.json with the key `twitter_bearer_token` if you know what you are doing OR start WiihUb and click `Set Twitter Key` under `Twitter`, then paste the token and send it.  
   
-Sadly, the Twitter API V2 limits you to 500000 tweets per month, don't go too crazy with it and don't share your token.  
 # 3DS Video Encoding  
 I use [FFmpeg](https://ffmpeg.org/download.html) to encode my videos to the right format for the New 3DS.  
 A simple example with a command line would be:
@@ -87,3 +79,8 @@ The New 3DS/2DS internet browser only supports MP4 format (Video: H.264 - MPEG-4
   
 The plugin also have a simple playlist system to alleviate the one hour limit.  
 You can put a `.txt` file in the folder, containing the name of one file per line, and loading it will put all the videos on the same page.  
+  
+# Old Plugins  
+The old plugins folder contains old plugins whose development stopped.  
+I included them for legacy and archiving purpose.  
+Note that twitter is joining this folder, following the announcement of the Twitter API becoming [paid only](https://twitter.com/TwitterDev/status/1621026986784337922).

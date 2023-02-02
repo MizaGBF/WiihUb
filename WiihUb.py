@@ -1,5 +1,4 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import threading
 import logging
 import json
 import plugins
@@ -32,7 +31,7 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith('/favicon.ico'):
             self.answer(200, {'Content-type':'image/x-icon'}, self.server.icon)
         else:
-            for p in self.server.plugins:
+            for k, p in self.server.plugins.items():
                 try:
                     if p.process_get(self, path):
                         return
@@ -55,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.check_client_address(self.client_address) or not self.check_blacklist(path):
             return
         print("POST Request", path)
-        for p in self.server.plugins:
+        for k, p in self.server.plugins.items():
             try:
                 if p.process_post(self, path):
                     return
@@ -69,7 +68,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.check_client_address(self.client_address) or not self.check_blacklist(path):
             return
         print("HEAD Request", path)
-        for p in self.server.plugins:
+        for k, p in self.server.plugins.items():
             try:
                 if p.process_post(self, path):
                     return
@@ -88,7 +87,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def get_interface(self):
         html = self.server.get_body() + '<style>.elem {display: inline-block;border: 2px solid black;max-width: 300px;background-color: #b8b8b8;}</style><div><div class="elem"><img src="/favicon.ico" /><b>WiihUb '+self.server.version+'</b><br><a href="/manual">Help</a></div>'
-        for p in self.server.plugins:
+        for k, p in self.server.plugins.items():
             try:
                 html += '<div class="elem">'+p.get_interface()+'</div>'
             except:
@@ -98,7 +97,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def get_manual(self):
         html = self.server.get_body() + '<style>.elem {display: inline-block;border: 2px solid black;max-width: 500px;background-color: #b8b8b8;}</style><div><div class="elem"><img src="/favicon.ico" /><b>WiihUb Help '+self.server.version+'</b><br><a href="/">Back</a><br><a href="/savedata">Force Save</a><br><a href="https://github.com/MizaGBF/WiihUb">Github</a></div>'
-        for p in self.server.plugins:
+        for k, p in self.server.plugins.items():
             try:
                 html += '<div class="elem">'+p.get_manual()+'</div>'
             except:
@@ -108,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class WiihUb(ThreadingHTTPServer):
     def __init__(self):
-        self.version = "v3.6.4"
+        self.version = "v3.7.0"
         print("Starting...\n")
         try:
             with open('config.json', 'rb') as f:
@@ -125,7 +124,7 @@ class WiihUb(ThreadingHTTPServer):
             self.save()
         limits = httpx.Limits(max_keepalive_connections=100, max_connections=100, keepalive_expiry=10)
         self.http_client = httpx.Client(limits=limits)
-        self.plugins = []
+        self.plugins = {}
         self.blacklist = []
         self.is_running = True
         self.user_agent_common = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36"
@@ -158,12 +157,12 @@ class WiihUb(ThreadingHTTPServer):
             if len(ss) >= 2: options[ss[0]] = '='.join(ss[1:])
         return options
 
-    def add_plugin(self, plugin):
-        self.plugins.append(plugin)
+    def add_plugin(self, name, plugin):
+        self.plugins[name] = plugin
 
     def stop(self):
-        for p in self.plugins:
-            try: p.stop()
+        for k, v in self.plugins.items():
+            try: v.stop()
             except: pass
 
     def save(self):
