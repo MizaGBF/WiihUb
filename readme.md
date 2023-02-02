@@ -8,7 +8,6 @@ Flexible and simple plugin system. Currently support:
 * Streamlink calls to receive Twitch streams on your Wii U (Twitch is currently broken on the Wii U/N3DS Browsers), using VLC as an intermediary.  
 * Screenshot upload (for ease of use).  
 * 4chan Thread search (The search doesn't work anymore on the Wii U Browser).  
-* Twitter Browser (Requires a Dev account).  
 * E-Pub reader (Support e-pub 2 and 3).  
 * Mangadex Browser.  
 * ExHentai Browser.  
