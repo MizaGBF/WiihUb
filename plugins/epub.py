@@ -60,7 +60,29 @@ class Epub():
             
         if chapter > len(self.chapters):
             chapter = 0
-        return self.chapters[chapter].get_body_content().decode("utf-8"), chapter, len(self.chapters)-1
+        content = self.chapters[chapter].get_body_content().decode("utf-8")
+        a = 0
+        b = 0
+        while True:
+            a = content.find("style=\"", b)
+            if a == -1:
+                break
+            else:
+                b = a + len("style=\"")
+                a = content.find("color:", a)
+                if a == -1:
+                    pass
+                else:
+                    a += len("color:")
+                    b = content.find(";", a)
+                    if b == -1:
+                        b = content.find("\"", a)
+                    if b == -1:
+                        b = a
+                    else:
+                        content = content[:a] + content[b:]
+                        b = a
+        return content, chapter, len(self.chapters)-1
 
     def get_book_list(self):
         try: fs = [f for f in listdir(self.folder) if (isfile(join(self.folder, f)) and f.endswith('.epub'))]
