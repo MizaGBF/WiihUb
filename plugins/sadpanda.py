@@ -192,7 +192,6 @@ class Sadpanda():
             div = soup.find_all("div", class_="gdtm")
             res = []
             count = 0
-            print(div)
             for e in div:
                 a = e.findChildren("a", recursive=True)[0]
                 l = a.attrs['href']
@@ -467,7 +466,7 @@ class Sadpanda():
             except Exception as e:
                 print("Failed to clear sadpanda cookies")
                 self.server.printex(e)
-                self.notification = 'Failed to '.format(options.get('file', ''))
+                self.notification = 'Failed to clear sadpanda cookies'
             handler.answer(303, {'Location': 'http://{}'.format(host_address)})
             return True
         return False
