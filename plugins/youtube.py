@@ -159,6 +159,9 @@ class Youtube():
                     if data is not None:
                         with self.lock:
                             self.thumb_cache[src]= data
+                            if len(self.thumb_cache.keys()) > 60:
+                                keys = set(list(self.thumb_cache.keys())[-60:])
+                                self.thumb_cache = {k:v for k, v in self.thumb_cache.items() if k in keys}
                 handler.answer(200, {'Content-type': 'image/' + ext}, data)
             except Exception as e:
                 print('Failed to load thumbnail')
