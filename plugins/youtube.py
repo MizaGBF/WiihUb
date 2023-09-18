@@ -11,6 +11,10 @@ class Youtube():
         self.lock = Lock()
         if len(self.cookies.keys()) == 0:
             self.consentYoutube()
+        self.has_streamlink = False
+
+    def init_plugin(self):
+        self.has_streamlink = ("streamlink" in self.server.plugins)
 
     def stop(self):
         self.server.data["yt_cookie"] = self.cookies
@@ -136,7 +140,9 @@ class Youtube():
                         if bottomline != "": bottomline += " - " + tmp
                     except:
                         pass
-                    html += '<a href="https://m.youtube.com/watch?v={}">{}<br>{}</a>{}<br>{}'.format(k, thumb, title, owner, bottomline)
+                    html += '<a href="https://youtube.com/watch?v={}">{}<br>{}</a>'.format(k, thumb, title)
+                    if self.has_streamlink: html += '<a href="/streamlinkyoutube?id={}">Open in Streamlink</a><br>'.format(k)
+                    html += '{}<br>{}'.format(owner, bottomline)
                     html += '</div>'
                 html += '</div>'
                 html += footer

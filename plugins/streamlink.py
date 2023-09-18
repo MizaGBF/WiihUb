@@ -13,6 +13,7 @@ class Streamlink():
         self.streamlink = None
         self.streamlink_url = None
         self.streamlink_current  = None
+        self.streamlink_name = None
         self.notification = None
         self.quals = {"720p": "Wii U TV", "480p": "Wii U Gamepad", "360p": "N3DS", "160p": "Low Quality", "720p60": "Wii U TV (60 fps)", "1080p": "1080p", "1080p60": "1080p (60 fps)"}
         self.path = self.server.data.get("vlc_path", "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe")
@@ -119,6 +120,7 @@ class Streamlink():
                     self.last_quality = options.get('qual', self.last_quality)
                     self.streamlink_url = 'http://{}:{}'.format(host_address.split(":")[0], self.vlc_port)
                     self.streamlink_current = '{}'.format(options['stream'])
+                    self.streamlink_name = self.streamlink_current
                     self.add_to_history(options['stream'], options.get('qual', self.last_quality))
                     handler.answer(303, {'Location': self.streamlink_url})
                 else:
@@ -155,6 +157,34 @@ class Streamlink():
             html += '<div class="elem"><form action="/streamlinkcustom"><legend><b>Open any url. Results might vary.</b></legend><label for="url">Url </label><input type="text" id="url" name="url" value=""><br><label for="qual">Quality </label><input type="text" id="qual" name="qual" value="best"><br><label for="options">Options </label><input type="text" id="options" name="options" value=""><br><input type="submit" value="Start"></form>'
             handler.answer(200, {'Content-type': 'text/html'}, html.encode('utf-8'))
             return True
+        elif path.startswith('/streamlinkyoutube'):
+            options = self.server.getOptions(path, 'streamlinkyoutube')
+            try:
+                vid = options['id']
+                if self.start_process(["--stream-segment-threads", "2", "--player-continuous-http", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "www.youtube.com/watch?v={}".format(vid), options.get('qual', '360p')], qual=options.get('qual', '360p')): # qual placeholder
+                    self.streamlink_url = 'http://{}:{}'.format(host_address.split(":")[0], self.vlc_port)
+                    self.streamlink_name = "www.youtube.com/watch?v={}".format(vid)
+                    handler.answer(303, {'Location': self.streamlink_url})
+                else:
+                    tmp = subprocess.Popen([self.streamlink_path, "--stream-segment-threads", "2", "--player-external-http", "--player-external-http-port", str(self.streamlink_port), "www.youtube.com/watch?v={}".format(vid)], stdout=subprocess.PIPE)
+                    lines = tmp.stdout.read().decode('utf-8').split('\n')
+                    self.notification = ""
+                    for i in range(len(lines)):
+                        if lines[i].startswith('error: No playable streams found on this URL'):
+                            self.notification = "Can't grab this video link"
+                            break
+                        elif lines[i].startswith('Available streams: '):
+                            self.notification = 'Available qualities:<br>' + lines[i][len('Available streams: '):]
+                            break
+                    if self.notification == "": self.notification = "Couldn't open the stream"
+                    self.kill_process(tmp)
+                    raise Exception()
+                return True
+            except Exception as e:
+                print("Youtube video not found")
+                self.server.printex(e)
+                handler.answer(303, {'Location': 'http://{}'.format(host_address)})
+                return True
         elif path.startswith('/streamlinkreload'):
             try:
                 self.start_vlc(self.last_quality)
@@ -177,15 +207,10 @@ class Streamlink():
                 if self.start_process(params):
                     print("Stream started")
                     self.streamlink_url = 'http://{}:{}'.format(host_address.split(":")[0], self.vlc_port)
-                    tmp = urllib.parse.unquote(options['url']).split('/')
-                    for t in tmp:
-                        if '.' in t:
-                            self.streamlink_current = '.'.join(t.split('.')[-2:])
-                            break
+                    self.streamlink_name = urllib.parse.unquote(options['url']).split('/')[-1]
                     handler.answer(303, {'Location': self.streamlink_url})
                 else:
                     if self.notification == "": self.notification = "Couldn't open the stream"
-                    self.kill_process(tmp)
                     raise Exception()
                 return True
             except Exception as e:
@@ -215,7 +240,7 @@ class Streamlink():
             f'<option value="{self.last_quality}" selected="selected">Last used: {self.last_quality}</option>'
         html += '</select><br><input type="submit" value="Start"></form><a href="streamlinkhistory">History</a><br><a href="streamlinkadvanced">Advanced</a><br>'
         if self.streamlink is not None:
-            html += '<a href="{}">Watch {}</a>'.format(self.streamlink_url, self.streamlink_current)
+            html += '<a href="{}">Watch {}</a>'.format(self.streamlink_url, self.streamlink_name)
             html += '<br><a href="/streamlinkreload">Reload VLC</a>'
             html += '<br><form action="/kill"><input type="submit" value="Stop Streamlink"></form>'
         if self.notification is not None:
