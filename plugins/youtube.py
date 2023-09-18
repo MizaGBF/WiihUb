@@ -171,7 +171,7 @@ class Youtube():
         elif path.startswith('/youtubereset'):
             try:
                 self.cookies = {}
-                self.youtubeconsent()
+                self.consentYoutube()
                 self.notification = "Cookies have been reset."
             except Exception as e:
                 print("Failed to reset cookies.")
