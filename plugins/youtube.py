@@ -25,7 +25,7 @@ class Youtube():
         headers["Connection"] = "close"
         headers["Origin"] = "https://www.youtube.com"
         headers["Referer"] = "https://www.youtube.com/"
-        rep = self.server.http_client.post("https://consent.youtube.com/save?continue=https://www.youtube.com/&gl=FR&m=0&pc=yt&x=5&src=2&hl=fr&bl=551504459&cm=2&set_eom=false&set_apyt=true&set_ytc=true", headers=headers)
+        rep = self.server.http_client.post("https://consent.youtube.com/save?continue=https://www.youtube.com/&gl=FR&m=0&pc=yt&x=5&src=2&hl=en&bl=551504459&cm=2&set_eom=false&set_apyt=true&set_ytc=true", headers=headers)
         if rep.status_code >= 300 or rep.status_code < 200: raise Exception("HTTP Error {}".format(rep.status_code))
         self.updateCookie(rep.headers)
 
@@ -104,7 +104,7 @@ class Youtube():
                 query = unquote(options.get('query', '').replace('+', ' '))
                 videos = self.searchYoutube(query)
 
-                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 305px;display: inline-block;}</style>'
+                html = self.server.get_body() + '<style>.elem {border: 2px solid black;display: table;background-color: #b8b8b8;margin: 10px 50px 10px;padding: 10px 10px 10px 10px;} .subelem {width: 255px;display: inline-block;}</style>'
                 footer = '<div class="elem"><a href="/">Back</a><br><form action="/youtubequery"><label for="query">Search </label><input type="text" id="query" name="query" value=""><br><input type="submit" value="Send"></form></div>'
                 html += footer
                 html += '<div class="elem">'
@@ -112,7 +112,7 @@ class Youtube():
                     if k == 'metadata': continue
                     html += '<div class="subelem">'
                     try:
-                        thumb = '<img src="/youtubethumb?src={}" style="min-width:300px;max-width:300px;">'.format(v[0]["thumbnails"][0]["url"].split('?')[0])
+                        thumb = '<img src="/youtubethumb?src={}" style="min-width:200;max-width:200px;">'.format(v[0]["thumbnails"][0]["url"].split('?')[0])
                     except:
                         thumb = ""
                     try:
@@ -140,7 +140,7 @@ class Youtube():
                         if bottomline != "": bottomline += " - " + tmp
                     except:
                         pass
-                    html += '<a href="https://youtube.com/watch?v={}">{}<br>{}</a>'.format(k, thumb, title)
+                    html += '<a href="https://youtube.com/watch?v={}">{}</a><br>{}<br>'.format(k, thumb, title)
                     if self.has_streamlink: html += '<a href="/streamlinkyoutube?id={}">Open in Streamlink</a><br>'.format(k)
                     html += '{}<br>{}'.format(owner, bottomline)
                     html += '</div>'
