@@ -1,4 +1,4 @@
-EbookLib>=0.17.1
-beautifulsoup4>=4.11.1
-httpx[http2]>=0.23.0
-pillow>=9.3.0
+EbookLib>=0.18
+beautifulsoup4>=4.12.2
+httpx>=0.25.0
+pillow>=10.0.1
